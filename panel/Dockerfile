@@ -23,5 +23,7 @@ COPY db ./db
 COPY --from=build /app/panel/build ./panel/build
 COPY panel/public ./panel/public
 COPY panel/seed ./panel/seed
+COPY panel/start.mjs ./panel/start.mjs
+COPY panel/app/lib ./panel/app/lib
 EXPOSE 3000
 CMD ["npm", "run", "start", "-w", "@linkyard/panel"]

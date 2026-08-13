@@ -28,8 +28,8 @@ try {
 }
 
 const server = spawn(
-  'npx',
-  ['react-router-serve', './build/server/index.js'],
+  process.execPath,
+  ['../node_modules/.bin/react-router-serve', './build/server/index.js'],
   { stdio: 'inherit', env: process.env }
 )
 server.on('exit', (code) => process.exit(code ?? 0))
