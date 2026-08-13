@@ -6,11 +6,21 @@
   "license": "MIT",
   "author": "Paulo Chaves <me@paulochaves.dev>",
   "description": "Self-hosted redirect and short-link manager with automatic domain provisioning",
-  "engines": { "node": ">=22" },
-  "workspaces": ["db", "core"],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "db",
+    "core",
+    "panel"
+  ],
   "scripts": {
     "test": "node --test --test-concurrency=1",
     "migrate": "node db/migrate.mjs",
     "scan": "bash scripts/scan.sh"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "fsevents@2.3.3": true
   }
 }
