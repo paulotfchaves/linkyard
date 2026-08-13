@@ -15,9 +15,13 @@ export function getPool(): pg.Pool {
     pool = new Pool({
       connectionString,
       max: 6,
-      // Railway and most managed Postgres terminate TLS with a certificate the
-      // container has no root for. The connection is still encrypted.
-      ssl: connectionString.includes('localhost') ? undefined : { rejectUnauthorized: false },
+      // SSL is opt-in through the connection string, never guessed. Guessing
+      // "not localhost, therefore TLS" breaks Railway's private network, which
+      // speaks plain TCP inside the project and rejects the handshake outright.
+      // A provider that wants TLS says so with ?sslmode=require.
+      ssl: /[?&]sslmode=(require|verify-ca|verify-full)/.test(connectionString)
+        ? { rejectUnauthorized: false }
+        : undefined,
     })
   }
   return pool

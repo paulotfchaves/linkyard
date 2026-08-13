@@ -14,11 +14,26 @@ if (!url) {
   process.exit(1)
 }
 
-const pool = new pg.Pool({
-  connectionString: url,
-  max: 2,
-  ssl: url.includes('localhost') ? undefined : { rejectUnauthorized: false },
-})
+/**
+ * SSL is opt-in through the connection string, never guessed.
+ *
+ * Guessing "not localhost, therefore TLS" breaks the most common deployment
+ * this product has: Railway's private network speaks plain TCP inside the
+ * project and rejects an SSL handshake outright. A managed database that does
+ * want TLS says so with ?sslmode=require, which is the standard libpq spelling
+ * and the one thing every provider documents.
+ */
+function sslFor(connectionString) {
+  if (/[?&]sslmode=(require|verify-ca|verify-full)/.test(connectionString)) {
+    // rejectUnauthorized stays false because managed providers terminate TLS
+    // with a certificate chain the container has no root store for. The
+    // connection is still encrypted.
+    return { rejectUnauthorized: false }
+  }
+  return undefined
+}
+
+const pool = new pg.Pool({ connectionString: url, max: 2, ssl: sslFor(url) })
 
 try {
   const applied = await migrate(pool)
