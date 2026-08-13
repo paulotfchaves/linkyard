@@ -188,3 +188,128 @@ test('subdomains: host is globally unique and cascades from its domain', async (
   const { rows: left } = await db.pool.query('SELECT count(*)::int AS n FROM subdomains')
   assert.equal(left[0].n, 0)
 })
+
+// ── links ───────────────────────────────────────────────────────────────────
+
+async function seedSubdomain(pool, apex = 'example.com', host = 'go.example.com') {
+  const { rows: d } = await pool.query(
+    `INSERT INTO domains (apex, root_policy) VALUES ($1, 'redirect_apex') RETURNING id`,
+    [apex]
+  )
+  const { rows: s } = await pool.query(
+    `INSERT INTO subdomains (domain_id, host) VALUES ($1, $2) RETURNING id`,
+    [d[0].id, host]
+  )
+  return s[0].id
+}
+
+test('links: slug is unique per subdomain but reusable across subdomains', async (t) => {
+  const db = await migratedDatabase('schema_links')
+  t.after(() => db.end())
+
+  const subA = await seedSubdomain(db.pool)
+  const subB = await seedSubdomain(db.pool, 'other.com', 'go.other.com')
+
+  await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url) VALUES ($1, 'promo', 'https://a.example')`,
+    [subA]
+  )
+  await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url) VALUES ($1, 'promo', 'https://b.example')`,
+    [subB]
+  )
+  await assert.rejects(
+    () =>
+      db.pool.query(
+        `INSERT INTO links (subdomain_id, slug, target_url) VALUES ($1, 'PROMO', 'https://c.example')`,
+        [subA]
+      ),
+    /duplicate key/
+  )
+})
+
+test('links: reserved slugs are rejected by the database', async (t) => {
+  const db = await migratedDatabase('schema_reserved')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+
+  for (const slug of ['health', 'robots.txt', 'favicon.ico', '_status']) {
+    await assert.rejects(
+      () =>
+        db.pool.query(
+          `INSERT INTO links (subdomain_id, slug, target_url) VALUES ($1, $2, 'https://x.example')`,
+          [sub, slug]
+        ),
+      /links_slug_not_reserved/,
+      `slug "${slug}" must be rejected`
+    )
+  }
+})
+
+test('links: redirect_type defaults to 302', async (t) => {
+  const db = await migratedDatabase('schema_302')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+
+  const { rows } = await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url)
+     VALUES ($1, 'promo', 'https://x.example') RETURNING redirect_type`,
+    [sub]
+  )
+  assert.equal(rows[0].redirect_type, 302)
+})
+
+test('link_versions: survive the deletion of their link', async (t) => {
+  const db = await migratedDatabase('schema_versions')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+
+  const { rows } = await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url)
+     VALUES ($1, 'promo', 'https://x.example') RETURNING id`,
+    [sub]
+  )
+  const linkId = rows[0].id
+  await db.pool.query(
+    `INSERT INTO link_versions (link_id, source, before, after)
+     VALUES ($1, 'panel', '{"target_url":"https://old.example"}'::jsonb,
+                          '{"target_url":"https://x.example"}'::jsonb)`,
+    [linkId]
+  )
+
+  await db.pool.query('DELETE FROM links WHERE id = $1', [linkId])
+  const { rows: kept } = await db.pool.query('SELECT link_id FROM link_versions')
+  assert.equal(kept.length, 1, 'history must outlive the row it describes')
+  assert.equal(kept[0].link_id, null, 'the reference is nulled, the record stays')
+})
+
+test('schedules: an empty patch and an empty target list are rejected', async (t) => {
+  const db = await migratedDatabase('schema_schedules')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+  const { rows } = await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url)
+     VALUES ($1, 'promo', 'https://x.example') RETURNING id`,
+    [sub]
+  )
+
+  await assert.rejects(
+    () =>
+      db.pool.query(
+        `INSERT INTO schedules (link_ids, fire_at, author_timezone, patch)
+         VALUES (ARRAY[$1::uuid], now() + interval '1 hour', 'America/Sao_Paulo', '{}'::jsonb)`,
+        [rows[0].id]
+      ),
+    /schedules_patch_not_empty/
+  )
+
+  await assert.rejects(
+    () =>
+      db.pool.query(
+        `INSERT INTO schedules (link_ids, fire_at, author_timezone, patch)
+         VALUES (ARRAY[]::uuid[], now() + interval '1 hour', 'America/Sao_Paulo',
+                 '{"target_url":"https://y.example"}'::jsonb)`
+      ),
+    /schedules_has_targets/
+  )
+})
