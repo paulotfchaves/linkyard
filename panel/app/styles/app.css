@@ -424,3 +424,354 @@ textarea {
 .reveal-2 { animation-delay: 0.16s; }
 .reveal-3 { animation-delay: 0.24s; }
 .reveal-4 { animation-delay: 0.32s; }
+
+/* ── shell chrome ───────────────────────────────────────────────────────── */
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--on-panel);
+  white-space: nowrap;
+}
+
+/* The 2px rotated square: the portfolio's brand glyph, carried over intact. */
+.wordmark__glyph {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--r-glyph);
+  background: var(--primary);
+  transform: rotate(45deg);
+}
+
+.shell__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shell__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.shell__link {
+  border-radius: var(--r-pill);
+  padding: 0.4375rem 0.8125rem;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--on-panel-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--t-state) var(--ease), color var(--t-state) var(--ease);
+}
+
+.shell__link:hover {
+  background: var(--panel-fill-hover);
+  color: var(--on-panel);
+}
+
+.shell__link.is-active {
+  background: var(--panel-fill-hover);
+  color: var(--on-panel);
+  box-shadow: inset 0 0 0 1px var(--panel-border);
+}
+
+.shell__account {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  white-space: nowrap;
+}
+
+.shell__locale,
+.shell__signout {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-pill);
+  padding: 0.3125rem 0.6875rem;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
+  color: var(--on-panel);
+  cursor: pointer;
+  transition: background-color var(--t-state) var(--ease);
+}
+
+.shell__locale:hover,
+.shell__signout:hover {
+  background: var(--panel-fill-hover);
+}
+
+.shell__user {
+  font-size: var(--fs-small);
+  color: var(--on-panel-muted);
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__main {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 var(--gutter) 4rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--gutter);
+  flex-wrap: wrap;
+  padding: 1.75rem 0 1.25rem;
+}
+
+.page-header__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ── threshold surface: one framed ember panel, one viewport ────────────── */
+
+.threshold {
+  min-height: calc(100svh - var(--frame) * 2);
+  display: grid;
+  place-items: center;
+  padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.threshold__inner {
+  width: min(26rem, 100%);
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (max-width: 48rem) {
+  .shell__bar {
+    flex-wrap: wrap;
+    row-gap: 0.625rem;
+  }
+
+  .shell__nav {
+    order: 3;
+    width: 100%;
+  }
+
+  .shell__account {
+    margin-left: auto;
+  }
+}
+
+/* ── table detail ───────────────────────────────────────────────────────── */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table__check {
+  width: 2.5rem;
+  padding-right: 0;
+}
+
+.table__check input {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.table__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.slug-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+.slug-cell__link {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t-state) var(--ease);
+}
+
+.slug-cell__link:hover {
+  border-bottom-color: var(--primary);
+}
+
+/* A pinned link keeps its URL forever while the destination changes. The
+   diamond is the same rotated square the brand mark uses, at rest. */
+.slug-cell__pin {
+  color: var(--primary);
+  font-size: 0.5rem;
+  line-height: 1;
+}
+
+.destination {
+  display: inline-block;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.destination__host {
+  color: var(--ink);
+}
+
+.destination__path {
+  color: var(--muted);
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 0.125rem 0.25rem;
+  border-radius: var(--r-tag);
+  color: var(--faint);
+  cursor: pointer;
+  line-height: 1;
+  transition: color var(--t-state) var(--ease), background-color var(--t-state) var(--ease);
+}
+
+.icon-btn:hover {
+  color: var(--primary);
+  background: var(--primary-wash);
+}
+
+.row-edit {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.row-edit:hover {
+  color: var(--primary);
+}
+
+/* The selection bar is chrome that floats over the work, so it is one of the
+   few places a shadow is allowed. */
+.selection-bar {
+  position: sticky;
+  bottom: var(--frame);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gutter);
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  color: var(--on-panel);
+  box-shadow: var(--shadow-sheet);
+}
+
+.selection-bar__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.selection-bar .btn--quiet {
+  border-color: var(--panel-border);
+  color: var(--on-panel);
+}
+
+.selection-bar .btn--quiet:hover {
+  border-color: var(--on-panel);
+  background: var(--panel-fill-hover);
+}
+
+/* ── filters ────────────────────────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+}
+
+.filters__search {
+  flex: 1;
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-pill);
+  padding: 0.3125rem 0.75rem;
+  background: var(--paper);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--t-state) var(--ease), color var(--t-state) var(--ease),
+    background-color var(--t-state) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.chip[aria-pressed="true"],
+.chip.is-active {
+  border-color: var(--primary);
+  background: var(--primary-wash);
+  color: var(--primary-deep);
+}
+
+.chip__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+
+/* ── pagination ─────────────────────────────────────────────────────────── */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gutter);
+  flex-wrap: wrap;
+  padding-top: 1rem;
+}
+
+.pager__pages {
+  display: flex;
+  gap: 0.25rem;
+}
+
+@media (max-width: 64rem) {
+  .table__tag,
+  .destination {
+    max-width: 22ch;
+  }
+}
+
+@media (max-width: 48rem) {
+  .table thead th:nth-child(4),
+  .table tbody td:nth-child(4) {
+    display: none;
+  }
+}
