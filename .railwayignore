@@ -1,0 +1,9 @@
+node_modules
+.git
+panel/build
+panel/.react-router
+db/test
+core/test
+panel/test
+scripts
+docs

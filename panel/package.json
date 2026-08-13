@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "node ./start.mjs",
     "typecheck": "react-router typegen && tsc --noEmit"
   },
   "dependencies": {
