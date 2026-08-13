@@ -8,7 +8,7 @@ import {
   detectsLoop,
   linkStatus,
   RESERVED_SLUGS,
-} from '../app/lib/links.server.ts'
+} from '../app/lib/links.ts'
 
 test('validateSlug accepts ordinary slugs', () => {
   for (const slug of ['promo', 'spring-2026', 'a', 'v1.2', 'a_b~c']) {

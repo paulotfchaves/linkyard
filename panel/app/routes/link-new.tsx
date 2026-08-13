@@ -6,7 +6,8 @@ import { query } from '~/lib/db.server.ts'
 import { t, type Locale } from '~/lib/i18n/index.ts'
 import { Shell, PageHeader } from '~/components/shell.tsx'
 import { LinkEditor } from '~/components/link-editor.tsx'
-import { editorLabels, navFor, parseLinkForm } from '~/lib/editor.server.ts'
+import { parseLinkForm } from '~/lib/editor.server.ts'
+import { editorLabels, navFor } from '~/lib/editor-labels.ts'
 
 export async function loader({ request }: { request: Request }) {
   const session = await requireSession(request)

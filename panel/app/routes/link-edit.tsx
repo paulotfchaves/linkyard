@@ -1,12 +1,14 @@
 import { redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { requireSession, withRefresh } from '~/lib/auth.server.ts'
 import { requirePermission } from '~/lib/permission.server.ts'
-import { getLink, updateLink, UTM_KEYS } from '~/lib/links.server.ts'
+import { getLink, updateLink } from '~/lib/links.server.ts'
+import { UTM_KEYS } from '~/lib/links.ts'
 import { query } from '~/lib/db.server.ts'
 import { t, type Locale } from '~/lib/i18n/index.ts'
 import { Shell, PageHeader } from '~/components/shell.tsx'
 import { LinkEditor } from '~/components/link-editor.tsx'
-import { editorLabels, navFor, parseLinkForm } from '~/lib/editor.server.ts'
+import { parseLinkForm } from '~/lib/editor.server.ts'
+import { editorLabels, navFor } from '~/lib/editor-labels.ts'
 
 export async function loader({ request, params }: { request: Request; params: { id: string } }) {
   const session = await requireSession(request)

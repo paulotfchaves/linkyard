@@ -1,7 +1,7 @@
 import { Form, Link } from 'react-router'
 import { useState } from 'react'
 import { Button, Field, TextInput } from './ui.tsx'
-import { UTM_KEYS, splitUtmsFromUrl, type UtmKey } from '~/lib/links.server.ts'
+import { UTM_KEYS, splitUtmsFromUrl, type UtmKey } from '~/lib/links.ts'
 
 // The destination editor. Four sections, in the order a person thinks about a
 // link: where it goes, how it is tracked, how it behaves, how long it lives.
