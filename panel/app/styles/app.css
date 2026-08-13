@@ -841,8 +841,17 @@ textarea {
   flex-wrap: wrap;
 }
 
+/* The frame margin that makes every dark surface float is what pushed this
+   panel off centre inside the grid. On a threshold surface the .threshold
+   padding already provides that breathing room, so the margin goes. */
+.threshold .ember,
 .threshold__panel {
   width: min(30rem, 100%);
+  margin: 0;
+}
+
+.threshold__inner {
+  padding: clamp(1.5rem, 4vw, 2.25rem);
 }
 
 @media (max-width: 40rem) {
