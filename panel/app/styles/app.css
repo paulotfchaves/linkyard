@@ -775,3 +775,78 @@ textarea {
     display: none;
   }
 }
+
+/* ── editor ─────────────────────────────────────────────────────────────── */
+
+.editor {
+  display: grid;
+  gap: 1rem;
+  max-width: 52rem;
+}
+
+.editor__section {
+  display: grid;
+  gap: 0.875rem;
+  padding: var(--card-pad);
+}
+
+.editor__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.875rem;
+}
+
+.editor__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+/* A field filled by splitting a pasted URL flashes once, so the person sees
+   that the value arrived rather than wondering whether it was already there. */
+.field__input.is-imported {
+  border-color: var(--lime);
+  background: rgb(143 227 155 / 12%);
+}
+
+.editor__params {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.editor__param {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 0.5rem;
+  width: 100%;
+  align-items: center;
+}
+
+.editor__check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-body);
+}
+
+.editor__check input {
+  accent-color: var(--primary);
+}
+
+.editor__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.threshold__panel {
+  width: min(30rem, 100%);
+}
+
+@media (max-width: 40rem) {
+  .editor__row {
+    grid-template-columns: 1fr;
+  }
+}
