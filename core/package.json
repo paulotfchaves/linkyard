@@ -1,0 +1,11 @@
+{
+  "name": "@linkyard/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./secret": "./secret.mjs",
+    "./vault": "./vault.mjs"
+  }
+}

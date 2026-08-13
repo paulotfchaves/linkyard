@@ -1,0 +1,16 @@
+{
+  "name": "linkyard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Paulo Chaves <me@paulochaves.dev>",
+  "description": "Self-hosted redirect and short-link manager with automatic domain provisioning",
+  "engines": { "node": ">=22" },
+  "workspaces": ["db", "core"],
+  "scripts": {
+    "test": "node --test --test-concurrency=1 db/test core/test",
+    "migrate": "node db/migrate.mjs",
+    "scan": "bash scripts/scan.sh"
+  }
+}
