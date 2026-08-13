@@ -555,18 +555,32 @@ textarea {
 }
 
 @media (max-width: 48rem) {
+  /* Two explicit rows instead of relying on wrap order: the wordmark and the
+     account sit on the first, navigation gets the second to itself. Letting
+     flex-wrap decide put the account between the brand and the nav, which
+     reads as three unrelated things rather than one bar. */
   .shell__bar {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "brand account"
+      "nav   nav";
     row-gap: 0.625rem;
+    align-items: center;
+  }
+
+  .wordmark {
+    grid-area: brand;
   }
 
   .shell__nav {
-    order: 3;
+    grid-area: nav;
     width: 100%;
   }
 
   .shell__account {
-    margin-left: auto;
+    grid-area: account;
+    justify-self: end;
   }
 }
 
