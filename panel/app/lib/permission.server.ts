@@ -1,4 +1,4 @@
-import { query } from './db.server'
+import { query } from './db.server.ts'
 
 // The permission model, in one sentence: a role sets the baseline, and grants
 // only ever widen it.
@@ -11,7 +11,7 @@ import { query } from './db.server'
 // nowhere else.
 
 export const ROLES = ['owner', 'admin', 'editor', 'viewer'] as const
-export const RESOURCES = ['domain', 'subdomain', 'link'] as const
+export const RESOURCES = ['domain', 'subdomain', 'link', 'user'] as const
 export const ACTIONS = ['create', 'read', 'update', 'delete'] as const
 
 export type Role = (typeof ROLES)[number]
@@ -48,6 +48,10 @@ const EVERY_ABILITY: readonly Ability[] = [
   'link:read',
   'link:update',
   'link:delete',
+  'user:create',
+  'user:read',
+  'user:update',
+  'user:delete',
 ]
 
 // Every cell is spelled out rather than computed. A generated permission table
@@ -57,6 +61,9 @@ const BASELINE: Readonly<Record<Role, ReadonlySet<Ability>>> = {
   // An admin matches the owner on every resource. The one thing an admin cannot
   // do — remove or demote the owner — is not a resource/action pair, so it is
   // enforced by assertNotOwnerDemotion instead of by this table.
+  // An admin matches the owner on every resource/action cell. The two things an
+  // admin cannot do — take ownership, and remove the owner — are transitions
+  // rather than cells, so they are enforced by the two guards below.
   admin: new Set(EVERY_ABILITY),
   editor: new Set<Ability>([
     'domain:read',
@@ -66,7 +73,7 @@ const BASELINE: Readonly<Record<Role, ReadonlySet<Ability>>> = {
     'link:update',
     'link:delete',
   ]),
-  viewer: new Set<Ability>(['domain:read', 'subdomain:read', 'link:read', 'link:create']),
+  viewer: new Set<Ability>(['domain:read', 'subdomain:read', 'link:read']),
 }
 
 function forbidden(reason: string): Response {
@@ -127,8 +134,46 @@ export async function requirePermission(user: Actor, req: PermissionRequest): Pr
 
 // Ownership is transferred by an explicit, audited action, never as a side
 // effect of an admin editing a user row.
-export function assertNotOwnerDemotion(actor: Actor, target: { role: Role }): void {
-  if (target.role !== 'owner') return
+/**
+ * Guard both ends of a role change.
+ *
+ * Checking only the target's current role leaves the far worse hole open: an
+ * admin could not demote the owner, but could promote themselves TO owner and
+ * take the account. A role transition is dangerous when owner is on either
+ * side of it, so both sides are gated.
+ */
+export function assertOwnerTransitionAllowed(
+  actor: Actor,
+  target: { id?: string; role: Role },
+  nextRole: Role
+): void {
+  const touchesOwner = target.role === 'owner' || nextRole === 'owner'
+  if (!touchesOwner) return
   if (actor.role === 'owner') return
-  throw forbidden('only an owner can change the owner account')
+  throw forbidden('only an owner can grant or remove ownership')
+}
+
+/**
+ * @deprecated Use assertOwnerTransitionAllowed, which also blocks promotion.
+ * Kept so an existing call site fails loudly rather than silently permitting a
+ * transition this function never inspected.
+ */
+export function assertNotOwnerDemotion(actor: Actor, target: { role: Role }): void {
+  assertOwnerTransitionAllowed(actor, target, target.role)
+}
+
+/**
+ * Deletion needs its own guard: `user:delete` sits in the admin baseline, so
+ * without this an admin could simply remove the owner instead of demoting them
+ * and reach the same place by a different door.
+ */
+export function assertCanDeleteUser(actor: Actor, target: { id: string; role: Role }): void {
+  if (target.role === 'owner' && actor.role !== 'owner') {
+    throw forbidden('only an owner can remove the owner account')
+  }
+  // An owner deleting themselves would leave an installation nobody can
+  // administer, and there is no recovery path short of editing the database.
+  if (target.role === 'owner' && actor.id === target.id) {
+    throw forbidden('transfer ownership before removing this account')
+  }
 }
