@@ -42,6 +42,29 @@ try {
   await pool.end()
 }
 
+// SEED_DEMO fills an empty database with the demonstration dataset. It only
+// ever runs when there is no user yet, so it cannot overwrite a real
+// installation that happens to have the flag set.
+if (process.env.SEED_DEMO === '1') {
+  const seedPool = new pg.Pool({ connectionString: url, max: 2, ssl: sslFor(url) })
+  try {
+    const { rows } = await seedPool.query('SELECT EXISTS (SELECT 1 FROM users) AS any')
+    if (rows[0].any) {
+      console.log('seed skipped: this installation already has users')
+    } else {
+      const { seedDemo } = await import('./seed/demo.ts')
+      const counts = await seedDemo(seedPool)
+      console.log('demo seeded:', JSON.stringify(counts))
+    }
+  } catch (err) {
+    // A failed seed must not keep the panel from starting: an operator can
+    // always sign in and create data by hand.
+    console.error('demo seed failed:', err.message)
+  } finally {
+    await seedPool.end()
+  }
+}
+
 const server = spawn(
   process.execPath,
   ['../node_modules/.bin/react-router-serve', './build/server/index.js'],
