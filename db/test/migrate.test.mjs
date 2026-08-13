@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrate, appliedVersions } from '../migrate.mjs'
-import { freshDatabase } from './helpers.mjs'
+import { freshDatabase } from '../test-support/helpers.mjs'
 
 async function migrationDir(files) {
   const dir = await mkdtemp(join(tmpdir(), 'linkyard-mig-'))

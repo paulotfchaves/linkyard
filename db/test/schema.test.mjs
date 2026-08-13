@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { migrate, MIGRATIONS_DIR } from '../migrate.mjs'
-import { freshDatabase } from './helpers.mjs'
+import { freshDatabase } from '../test-support/helpers.mjs'
 
 async function migratedDatabase(schemaName) {
   const db = await freshDatabase(schemaName)
@@ -311,5 +311,102 @@ test('schedules: an empty patch and an empty target list are rejected', async (t
                  '{"target_url":"https://y.example"}'::jsonb)`
       ),
     /schedules_has_targets/
+  )
+})
+
+// ── analytics ───────────────────────────────────────────────────────────────
+
+test('click_events: is partitioned by range on occurred_at', async (t) => {
+  const db = await migratedDatabase('schema_events')
+  t.after(() => db.end())
+
+  const { rows } = await db.pool.query(
+    `SELECT c.relkind, p.partstrat
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       LEFT JOIN pg_partitioned_table p ON p.partrelid = c.oid
+      WHERE n.nspname = 'schema_events' AND c.relname = 'click_events'`
+  )
+  assert.equal(rows[0].relkind, 'p', 'click_events must be a partitioned table')
+  assert.equal(rows[0].partstrat, 'r', 'partitioning must be by RANGE')
+})
+
+test('click_events: a row with no matching month lands in the default partition', async (t) => {
+  const db = await migratedDatabase('schema_events_default')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+  const { rows: l } = await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url)
+     VALUES ($1, 'promo', 'https://x.example') RETURNING id`,
+    [sub]
+  )
+
+  // Far future: no partition exists for it. Without a default partition this
+  // insert would fail and the click would be lost.
+  await db.pool.query(
+    `INSERT INTO click_events (link_id, occurred_at, is_bot)
+     VALUES ($1, '2999-01-01T00:00:00Z', false)`,
+    [l[0].id]
+  )
+  const { rows } = await db.pool.query('SELECT count(*)::int AS n FROM click_events')
+  assert.equal(rows[0].n, 1)
+})
+
+test('ensure_click_partition: creates a month partition and is idempotent', async (t) => {
+  const db = await migratedDatabase('schema_partitions')
+  t.after(() => db.end())
+
+  const { rows: a } = await db.pool.query(
+    `SELECT ensure_click_partition('2026-03-01'::date) AS name`
+  )
+  assert.equal(a[0].name, 'click_events_2026_03')
+  const { rows: b } = await db.pool.query(
+    `SELECT ensure_click_partition('2026-03-15'::date) AS name`
+  )
+  assert.equal(b[0].name, 'click_events_2026_03', 'any day of the month maps to the same partition')
+
+  const { rows: parts } = await db.pool.query(
+    `SELECT count(*)::int AS n FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'schema_partitions' AND c.relname = 'click_events_2026_03'`
+  )
+  assert.equal(parts[0].n, 1, 'calling twice must not create two partitions')
+})
+
+test('click_events: no raw IP column exists', async (t) => {
+  const db = await migratedDatabase('schema_events_pii')
+  t.after(() => db.end())
+
+  const { rows } = await db.pool.query(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'schema_events_pii' AND table_name = 'click_events'`
+  )
+  const cols = rows.map((r) => r.column_name)
+  assert.ok(cols.includes('ip_hash'), 'ip_hash must exist')
+  assert.ok(!cols.includes('ip'), 'a raw ip column must not exist')
+  assert.ok(!cols.includes('ip_address'), 'a raw ip_address column must not exist')
+})
+
+test('click_daily: one row per link per day', async (t) => {
+  const db = await migratedDatabase('schema_daily')
+  t.after(() => db.end())
+  const sub = await seedSubdomain(db.pool)
+  const { rows: l } = await db.pool.query(
+    `INSERT INTO links (subdomain_id, slug, target_url)
+     VALUES ($1, 'promo', 'https://x.example') RETURNING id`,
+    [sub]
+  )
+
+  await db.pool.query(
+    `INSERT INTO click_daily (link_id, day, clicks, uniques) VALUES ($1, '2026-03-01', 10, 8)`,
+    [l[0].id]
+  )
+  await assert.rejects(
+    () =>
+      db.pool.query(
+        `INSERT INTO click_daily (link_id, day, clicks, uniques) VALUES ($1, '2026-03-01', 3, 3)`,
+        [l[0].id]
+      ),
+    /duplicate key/
   )
 })
