@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { migrate, MIGRATIONS_DIR } from '../migrate.mjs'
 import { freshDatabase } from '../test-support/helpers.mjs'
+import { deriveKey, seal, open, last4 } from '../../core/vault.mjs'
 
 async function migratedDatabase(schemaName) {
   const db = await freshDatabase(schemaName)
@@ -409,4 +410,38 @@ test('click_daily: one row per link per day', async (t) => {
       ),
     /duplicate key/
   )
+})
+
+// ── vault meets database ────────────────────────────────────────────────────
+
+test('a full table dump never reveals a stored credential', async (t) => {
+  const db = await migratedDatabase('schema_dump')
+  t.after(() => db.end())
+
+  const FIXTURE = 'ly-fixture-0123456789-abcdefghij-value'
+  const key = deriveKey('a-master-key-of-sufficient-length-for-testing')
+
+  await db.pool.query(
+    `INSERT INTO credentials (provider, label, ciphertext, last4)
+     VALUES ('cloudflare', 'main', $1, $2)`,
+    [seal(key, FIXTURE), last4(FIXTURE)]
+  )
+
+  // Read every column of every row as text, exactly as a dump would.
+  const { rows } = await db.pool.query(
+    `SELECT id::text, provider, label, encode(ciphertext, 'hex') AS ciphertext,
+            last4, scopes::text
+       FROM credentials`
+  )
+  const dump = JSON.stringify(rows)
+  assert.ok(!dump.includes(FIXTURE), 'the plaintext must not appear in a dump')
+  assert.ok(
+    !dump.includes(Buffer.from(FIXTURE, 'utf8').toString('hex')),
+    'the hex form of the plaintext must not appear either'
+  )
+  assert.ok(dump.includes('alue'), 'last4 is stored on purpose, for identification')
+
+  // And it still opens on the way back out.
+  const { rows: back } = await db.pool.query('SELECT ciphertext FROM credentials LIMIT 1')
+  assert.equal(open(key, back[0].ciphertext).reveal(), FIXTURE)
 })
