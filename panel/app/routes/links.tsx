@@ -6,7 +6,10 @@ import { listLinks, linkStatus, type LinkStatus } from '~/lib/links.server.ts'
 import { query } from '~/lib/db.server.ts'
 import { t, type Locale } from '~/lib/i18n/index.ts'
 import { Shell, PageHeader } from '~/components/shell.tsx'
-import { LinksTable, SelectionBar, type LinkRowView } from '~/components/links-table.tsx'
+import { navFor } from '~/lib/editor-labels.ts'
+import { LinksTable, type LinkRowView } from '~/components/links-table.tsx'
+import { BulkBar } from '~/components/bulk-bar.tsx'
+import { bulkLabels } from '~/lib/bulk-labels.ts'
 import { EmptyState, Button } from '~/components/ui.tsx'
 
 const STATUSES: Array<LinkStatus | 'all'> = ['all', 'active', 'paused', 'scheduled', 'expired']
@@ -61,7 +64,7 @@ export async function loader({ request }: { request: Request }) {
 }
 
 type LoaderData = {
-  user: { username: string; email: string; role: string }
+  user: { username: string; email: string; role: string; timezone: string }
   locale: Locale
   links: LinkRowView[]
   domains: Array<{ id: string; apex: string }>
@@ -77,13 +80,6 @@ export default function Links() {
   const [params, setParams] = useSearchParams()
   const [selected, setSelected] = useState<string[]>([])
   const { locale } = data
-
-  const nav = [
-    { to: '/links', label: t(locale, 'nav.links') },
-    { to: '/domains', label: t(locale, 'nav.domains') },
-    { to: '/analytics', label: t(locale, 'nav.analytics') },
-    { to: '/members', label: t(locale, 'nav.members') },
-  ]
 
   const labels = {
     slug: t(locale, 'links.table.column.slug'),
@@ -119,7 +115,7 @@ export default function Links() {
   return (
     <Shell
       user={data.user}
-      nav={nav}
+      nav={navFor(locale)}
       locale={locale}
       localeLabel={t(locale, 'account.language')}
       signOutLabel={t(locale, 'account.signOut')}
@@ -231,7 +227,14 @@ export default function Links() {
             )}
           </div>
 
-          <SelectionBar count={selected.length} labels={labels} onClear={() => setSelected([])} />
+          <BulkBar
+            selected={selected}
+            tags={data.tags}
+            labels={bulkLabels(locale)}
+            locale={locale}
+            timezone={data.user.timezone ?? 'UTC'}
+            onDone={() => setSelected([])}
+          />
         </>
       )}
     </Shell>

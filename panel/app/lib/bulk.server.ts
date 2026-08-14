@@ -450,18 +450,20 @@ export async function writeLinkChange(
 export async function bulkSetActive(
   ids: readonly string[],
   active: boolean,
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
   return applyBulk(ids, actorId, active ? 'link.activate' : 'link.pause', () => ({
     set: ['active = $1'],
     values: [active],
-  }))
+  }), options)
 }
 
 export async function bulkSetTag(
   ids: readonly string[],
   tagId: string | null,
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
   const targets = uniqueIds(ids)
 
@@ -479,10 +481,13 @@ export async function bulkSetTag(
     }
   }
 
-  return applyBulk(targets, actorId, 'link.tag', () => ({
-    set: ['tag_id = $1'],
-    values: [tagId],
-  }))
+  return applyBulk(
+    targets,
+    actorId,
+    'link.tag',
+    () => ({ set: ['tag_id = $1'], values: [tagId] }),
+    options
+  )
 }
 
 /**
@@ -497,7 +502,8 @@ export async function bulkSetUtms(
   ids: readonly string[],
   utms: Utms,
   mode: 'merge' | 'replace',
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
   const keys = mode === 'replace' ? [...UTM_KEYS] : UTM_KEYS.filter((key) => key in utms)
   const targets = uniqueIds(ids)
@@ -512,13 +518,14 @@ export async function bulkSetUtms(
 
   const set = keys.map((key, i) => `${key} = $${i + 1}`)
   const values = keys.map((key) => utms[key] ?? null)
-  return applyBulk(targets, actorId, 'link.utms', () => ({ set, values }))
+  return applyBulk(targets, actorId, 'link.utms', () => ({ set, values }), options)
 }
 
 export async function bulkSwapTarget(
   ids: readonly string[],
   params: SwapParams,
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
   return applyBulk(ids, actorId, 'link.swap', (before) => {
     const out = computeSwap(before.target_url, params)
@@ -527,22 +534,27 @@ export async function bulkSwapTarget(
     // recording a version row for a non-change would bury the real ones.
     if (!out.changed) return { skip: true }
     return { set: ['target_url = $1'], values: [out.newTarget] }
-  })
+  }, options)
 }
 
 export async function bulkSoftDelete(
   ids: readonly string[],
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
-  return applyBulk(ids, actorId, 'link.delete', () => ({
-    set: ['deleted_at = now()'],
-    values: [],
-  }))
+  return applyBulk(
+    ids,
+    actorId,
+    'link.delete',
+    () => ({ set: ['deleted_at = now()'], values: [] }),
+    options
+  )
 }
 
 export async function bulkRestore(
   ids: readonly string[],
-  actorId: string | null
+  actorId: string | null,
+  options: BulkOptions = {}
 ): Promise<BulkResult> {
   // The unique index is partial, so a restore can collide with a slug created
   // while this link was in the trash. The savepoint turns that into one entry
@@ -552,6 +564,6 @@ export async function bulkRestore(
     actorId,
     'link.restore',
     () => ({ set: ['deleted_at = NULL'], values: [] }),
-    { include: 'deleted' }
+    { ...options, include: 'deleted' }
   )
 }

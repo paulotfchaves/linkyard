@@ -7,8 +7,9 @@ export function navFor(locale: Locale) {
   return [
     { to: '/links', label: t(locale, 'nav.links') },
     { to: '/domains', label: t(locale, 'nav.domains') },
-    { to: '/analytics', label: t(locale, 'nav.analytics') },
+    { to: '/reports', label: t(locale, 'reports.title') },
     { to: '/members', label: t(locale, 'nav.members') },
+    { to: '/trash', label: t(locale, 'trash.title') },
   ]
 }
 
