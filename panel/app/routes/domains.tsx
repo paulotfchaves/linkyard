@@ -1,20 +1,20 @@
-import { useLoaderData } from 'react-router'
+import { Link, useLoaderData } from 'react-router'
 import { requireSession, withRefresh } from '~/lib/auth.server.ts'
 import { requirePermission } from '~/lib/permission.server.ts'
 import { query } from '~/lib/db.server.ts'
+import { getPendingProvision } from '~/lib/provisioning.server.ts'
 import { t, type Locale } from '~/lib/i18n/index.ts'
 import { Shell, PageHeader } from '~/components/shell.tsx'
 import { navFor } from '~/lib/editor-labels.ts'
-import { Button, EmptyState } from '~/components/ui.tsx'
+import { EmptyState } from '~/components/ui.tsx'
 
 // What this installation answers for: every domain, the hosts under it, and
 // whether each host can actually serve a redirect right now.
 //
-// Read-only on purpose. Provisioning a new domain is the Cloudflare integration
-// (F3), so the action that would start it is present and disabled with the
-// reason attached, rather than absent — a person who owns a domain arrives here
-// looking for exactly that button, and a screen that never mentions it reads as
-// a product that cannot do it.
+// Read-only, except for one door: connecting a domain lives at /domains/new,
+// which is a wizard rather than a form because the work behind it takes minutes
+// and survives a closed tab. A job already in flight is surfaced here too — the
+// person who closed that tab comes back to this screen, not to the wizard.
 
 type CertStatus = 'pending' | 'issuing' | 'valid' | 'failed'
 type Health = 'unknown' | 'ok' | 'degraded' | 'down'
@@ -47,7 +47,7 @@ export async function loader({ request }: { request: Request }) {
   // in the UI is a check an API request walks straight past.
   await requirePermission(session.user, { resource: 'domain', action: 'read' })
 
-  const [domains, subdomains] = await Promise.all([
+  const [domains, subdomains, pending] = await Promise.all([
     query<DomainRow>(
       `SELECT id, apex, root_policy, verified_at, active FROM domains ORDER BY lower(apex)`
     ),
@@ -62,10 +62,17 @@ export async function loader({ request }: { request: Request }) {
          FROM subdomains s
         ORDER BY lower(s.host)`
     ),
+    getPendingProvision(),
   ])
 
   return Response.json(
-    { user: session.user, locale: session.locale, domains, subdomains },
+    {
+      user: session.user,
+      locale: session.locale,
+      domains,
+      subdomains,
+      pendingHost: pending?.input.host ?? null,
+    },
     { headers: withRefresh(session) }
   )
 }
@@ -75,6 +82,8 @@ type LoaderData = {
   locale: Locale
   domains: DomainRow[]
   subdomains: SubdomainRow[]
+  /** A provision somebody started and did not finish — usually because the tab closed. */
+  pendingHost: string | null
 }
 
 // A certificate that has not been issued is not a failure and not a success.
@@ -192,21 +201,38 @@ export default function Domains() {
       <PageHeader
         title={t(locale, 'domains.title')}
         actions={
-          <div className="action-note">
-            <Button disabled arrow>
-              {t(locale, 'domains.connect')}
-            </Button>
-            {/* Disabled without a reason is a bug report waiting to be filed. */}
-            <p className="field__hint action-note__why">{t(locale, 'domains.connect.soon')}</p>
-          </div>
+          <Link to="/domains/new" className="btn btn--primary">
+            {t(locale, 'domains.connect')}
+            <span className="btn__arrow" aria-hidden="true">
+              ↗
+            </span>
+          </Link>
         }
       />
+
+      {/* An unfinished job is the one thing on this screen that is time-bound:
+          it holds the lock, and nobody can connect anything else until it is
+          finished or discarded. */}
+      {data.pendingHost && (
+        <p className="notice card">
+          {t(locale, 'domains.pending', { host: data.pendingHost })}{' '}
+          <Link to="/domains/new">{t(locale, 'domains.pending.resume')}</Link>
+        </p>
+      )}
 
       {data.domains.length === 0 ? (
         <EmptyState
           title={t(locale, 'domains.empty.title')}
           script={t(locale, 'domains.empty.script')}
           body={t(locale, 'domains.empty.body')}
+          action={
+            <Link to="/domains/new" className="btn btn--primary">
+              {t(locale, 'domains.connect')}
+              <span className="btn__arrow" aria-hidden="true">
+                ↗
+              </span>
+            </Link>
+          }
         />
       ) : (
         data.domains.map((domain) => (

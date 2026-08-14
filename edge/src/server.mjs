@@ -163,10 +163,20 @@ export function createEdgeServer({
 
     const bot = classifyBot(req.headers['user-agent'])
     const agent = parseUserAgent(req.headers['user-agent'])
+
+    // The address is resolved once and handed over BOTH ways: hashed for the
+    // stored column, and raw for the geolocation lookup the collector runs
+    // after the response is already sent. Passing only the hash meant the geo
+    // lookup short-circuited on a missing `ip` and silently never ran — every
+    // country column null in an installation that had configured MaxMind and
+    // had no way to tell why.
+    const ip = clientIp(req, { trustProxy })
+
     collector.record({
       linkId: outcome.linkId,
       occurredAt: new Date(),
-      ipHash: hashIp(clientIp(req, { trustProxy }), ipSalt),
+      ip,
+      ipHash: hashIp(ip, ipSalt),
       device: bot.isBot ? 'bot' : agent.device,
       os: agent.os,
       browser: agent.browser,

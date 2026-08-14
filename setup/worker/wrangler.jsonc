@@ -1,0 +1,26 @@
+{
+  // Linkyard install counter.
+  //
+  // Deploy: wrangler deploy. Before the first deploy:
+  //   wrangler kv namespace create linkyard_installs   (paste the id below)
+  //   wrangler secret put INSTALL_SECRET               (same value as the
+  //                                                     setup service's
+  //                                                     INSTALL_WORKER_SECRET)
+  //
+  // Note what is NOT here, and read it as a decision rather than an omission:
+  // no "send_email" binding, no email routing rule, no catch-all. The Worker
+  // this one is adapted from existed to capture a licence key out of an inbox;
+  // Linkyard has no such mail, so the handler and the catch-all that fed it
+  // would only be a public, unauthenticated write path into KV.
+  "name": "linkyard-installs",
+  "main": "index.js",
+  "compatibility_date": "2026-01-01",
+
+  // A dedicated host. Each operator substitutes their own; the setup service
+  // reaches it through INSTALL_WORKER_URL.
+  "routes": [{ "pattern": "installs.linkyard.paulochaves.dev", "custom_domain": true }],
+
+  "kv_namespaces": [{ "binding": "installs", "id": "<YOUR-KV-ID>" }],
+
+  "observability": { "enabled": true }
+}

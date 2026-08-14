@@ -95,3 +95,15 @@ test('a random 1000-value corpus never round-trips wrong', () => {
     assert.equal(open(key, seal(key, value)).reveal(), value)
   }
 })
+
+test('an unresolved template placeholder is refused as a key', () => {
+  // This exact string reached production configuration once: Railway's secret()
+  // function is evaluated on a template deploy, and an installer that creates
+  // services directly passes it through verbatim. It is long enough to satisfy
+  // a length check, which is precisely why the length check was not enough.
+  assert.throws(
+    () => deriveKey('${{secret(64, "abcdef0123456789")}}'),
+    /template placeholder/
+  )
+  assert.throws(() => deriveKey('${{postgres.POSTGRES_PASSWORD}}'), /template placeholder/)
+})

@@ -11,6 +11,7 @@ export default [
   route('links/:id', 'routes/link-edit.tsx'),
   route('links/bulk', 'routes/links.bulk.tsx'),
   route('domains', 'routes/domains.tsx'),
+  route('domains/new', 'routes/domains.new.tsx'),
   route('members', 'routes/members.tsx'),
   route('reports', 'routes/reports.tsx'),
   route('reports/export', 'routes/reports.export.ts'),

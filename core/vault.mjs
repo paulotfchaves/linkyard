@@ -19,9 +19,28 @@ const KEY_BYTES = 32
 const SALT = Buffer.from('linkyard.vault.v1')
 
 export function deriveKey(masterKey) {
-  if (typeof masterKey !== 'string' || masterKey.length < 32) {
+  if (typeof masterKey !== 'string') {
     throw new TypeError('master key must be a string of at least 32 characters')
   }
+
+  // Checked before the length, because a placeholder is a placeholder at any
+  // length and the specific message is the useful one. A short one would
+  // otherwise report "too short", sending an operator to lengthen a string that
+  // was never a secret.
+  //
+  // This is not hypothetical: `${{secret(64, "...")}}` reached configuration
+  // once. Railway evaluates secret() when a TEMPLATE is deployed, and an
+  // installer that creates services directly passes it through verbatim. At 35
+  // characters it satisfied a length check and derived one fixed key for every
+  // installation that shipped it.
+  if (masterKey.includes('${{') || masterKey.includes('}}')) {
+    throw new TypeError('master key looks like an unresolved template placeholder, not a secret')
+  }
+
+  if (masterKey.length < 32) {
+    throw new TypeError('master key must be a string of at least 32 characters')
+  }
+
   return scryptSync(masterKey, SALT, KEY_BYTES)
 }
 

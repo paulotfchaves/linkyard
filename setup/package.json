@@ -1,0 +1,13 @@
+{
+  "name": "@linkyard/setup",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Hosted setup panel: provisions Linkyard into the visitor's own Railway account",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test --test-concurrency=1"
+  }
+}

@@ -3,10 +3,22 @@
 // Two rules govern this file. Nothing here runs before the response is sent — a
 // lost metric is acceptable, a slow redirect is not. And no raw IP address ever
 // reaches the database: an address is personal data under the LGPD and the GDPR,
-// the product's only use for it is to tell two visitors apart, and an HMAC does
-// that without keeping the thing itself.
+// and the two things the product wants from one — telling two visitors apart and
+// naming a country — are both had without keeping it. The first is an HMAC. The
+// second is a lookup whose input is dropped on the way into the queue.
 
 import { createHmac, randomBytes } from 'node:crypto'
+import { geoFromEnv } from './geo.mjs'
+
+// One geolocation handle for the process, opened the first time a collector
+// needs one. A second copy would mean a second 60 MB database in memory and a
+// second weekly download of the same file. Without the MaxMind variables this
+// costs nothing: the handle answers null and schedules no work.
+let sharedGeo = null
+function defaultGeo() {
+  sharedGeo ??= geoFromEnv()
+  return sharedGeo
+}
 
 /**
  * The salt that makes the hash unlinkable to anyone holding a database dump.
@@ -161,6 +173,10 @@ const COLUMNS = [
   'link_id',
   'occurred_at',
   'ip_hash',
+  'country',
+  'region',
+  'city',
+  'asn',
   'device',
   'os',
   'browser',
@@ -173,14 +189,18 @@ const COLUMNS = [
   'latency_ms',
 ]
 
-// Country, region, city and ASN stay null until a MaxMind licence key is
-// configured; the columns exist and the panel already reads them as optional.
+// The four geo columns stay null until an installation configures MaxMind, and
+// the panel already reads them as optional. Nothing else about a click changes.
 
 function rowValues(event) {
   return [
     event.linkId,
     event.occurredAt ?? new Date(),
     event.ipHash ?? null,
+    event.country ?? null,
+    event.region ?? null,
+    event.city ?? null,
+    Number.isInteger(event.asn) ? event.asn : null,
     event.device ?? null,
     event.os ?? null,
     event.browser ?? null,
@@ -206,8 +226,20 @@ function rowValues(event) {
  * A failed batch is dropped and counted, never retried into a growing queue: a
  * database that is refusing writes must not also become the reason the process
  * runs out of memory, and no click is worth a redirect.
+ *
+ * An event may carry `ip`, the visitor's address as `clientIp` returned it. It
+ * is the one field that is not stored: record() turns it into a country, region,
+ * city and ASN and drops it before the event is queued. Omitting it is not an
+ * error — the four columns stay null, which is also what happens on every
+ * installation without a MaxMind licence key.
  */
-export function createCollector({ pool, flushMs = 250, maxBatch = 100, maxInFlight = 20 } = {}) {
+export function createCollector({
+  pool,
+  flushMs = 250,
+  maxBatch = 100,
+  maxInFlight = 20,
+  geo = defaultGeo(),
+} = {}) {
   let queue = []
   let timer = null
   // Flushes are chained rather than concurrent so two overlapping batches
@@ -271,10 +303,33 @@ export function createCollector({ pool, flushMs = 250, maxBatch = 100, maxInFlig
     return inFlight
   }
 
+  /**
+   * Turns `event.ip` into a place and drops the address.
+   *
+   * This is where the lookup belongs and the only place it happens. record() is
+   * called with the response already on the wire, so reading the database
+   * cannot delay a redirect — and the raw address never reaches the queue,
+   * which is held in memory for up to 250ms and then handed to a database.
+   * Neither is a place for a value the product promised not to keep.
+   */
+  function place(event) {
+    if (!event.ip) return event
+    const { ip, ...rest } = event
+    let found = null
+    try {
+      found = geo.lookup(ip)
+    } catch (err) {
+      // A soft dependency in every failure mode, including the one where the
+      // lookup itself is broken. The click is worth more than the column.
+      console.error('geo lookup failed:', err?.message ?? err)
+    }
+    return found ? { ...rest, ...found } : rest
+  }
+
   return {
     record(event) {
       if (stopped || !event?.linkId) return
-      queue.push(event)
+      queue.push(place(event))
       if (queue.length >= maxBatch) {
         flush()
         return

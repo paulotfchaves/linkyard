@@ -13,7 +13,8 @@
     "db",
     "core",
     "panel",
-    "edge"
+    "edge",
+    "setup"
   ],
   "scripts": {
     "test": "node --test --test-concurrency=1",
