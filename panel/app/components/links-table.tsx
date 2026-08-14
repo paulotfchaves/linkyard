@@ -137,7 +137,7 @@ export function LinksTable({
             const isSelected = selected.includes(row.id)
             return (
               <tr key={row.id} data-selected={isSelected || undefined}>
-                <td className="table__check">
+                <td className="table__check" data-label="">
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -145,7 +145,7 @@ export function LinksTable({
                     aria-label={`${labels.selectRow}: ${shortUrl(row)}`}
                   />
                 </td>
-                <td>
+                <td data-label={labels.slug}>
                   <span className="slug-cell">
                     {row.isPinned && (
                       <span className="slug-cell__pin" title={labels.pinned} aria-label={labels.pinned}>
@@ -158,15 +158,15 @@ export function LinksTable({
                     <CopyButton value={`https://${shortUrl(row)}`} labels={labels} />
                   </span>
                 </td>
-                <td className="t-muted">
+                <td className="t-muted" data-label={labels.destination}>
                   <DestinationCell url={row.targetUrl} />
                 </td>
-                <td>{row.tagName ? <Tag>{row.tagName}</Tag> : <span className="t-faint">—</span>}</td>
-                <td>
+                <td data-label={labels.tag}>{row.tagName ? <Tag>{row.tagName}</Tag> : <span className="t-faint">—</span>}</td>
+                <td data-label={labels.status}>
                   <StatusBadge status={row.status} label={labels[row.status] ?? row.status} />
                 </td>
-                <td className="table__num tabular">{row.clicks.toLocaleString()}</td>
-                <td className="table__num">
+                <td className="table__num tabular" data-label={labels.clicks}>{row.clicks.toLocaleString()}</td>
+                <td className="table__num row-actions" data-label="">
                   <Link to={`/links/${row.id}`} className="row-edit">
                     {labels.edit}
                   </Link>
