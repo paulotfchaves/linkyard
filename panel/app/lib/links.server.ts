@@ -54,7 +54,9 @@ export async function listLinks(filters: ListFilters = {}) {
   const page = Math.max(filters.page ?? 1, 1)
   const offset = (page - 1) * perPage
 
-  const where: string[] = []
+  // Deletion is soft, so "every link" means every live link — in the rows and
+  // in the count alike, since both are built from this list.
+  const where: string[] = ['l.deleted_at IS NULL']
   const params: unknown[] = []
   const add = (value: unknown) => {
     params.push(value)
@@ -127,7 +129,7 @@ export async function getLink(id: string): Promise<LinkRow | null> {
        FROM links l
        JOIN subdomains s ON s.id = l.subdomain_id
        LEFT JOIN tags t ON t.id = l.tag_id
-      WHERE l.id = $1`,
+      WHERE l.id = $1 AND l.deleted_at IS NULL`,
     [id]
   )
 }
@@ -215,13 +217,20 @@ export async function updateLink(
 ): Promise<LinkRow> {
   const row = toRow(input)
   return transaction(async (client) => {
-    const before = await client.query('SELECT * FROM links WHERE id = $1', [id])
+    // The deleted filter belongs here too, not only on the read paths. Without
+    // it, an editor holding a page open while somebody else deletes the link
+    // resurrects it on save — with the deleted_at still set, so it becomes a
+    // row that is edited but invisible.
+    const before = await client.query(
+      'SELECT * FROM links WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+      [id]
+    )
     if (!before.rowCount) throw new Response('Not found', { status: 404 })
 
     const sets = COLUMNS.map((c, i) => `${c} = $${i + 1}`).join(', ')
     const values = COLUMNS.map((c) => row[c])
     const updated = await client.query(
-      `UPDATE links SET ${sets} WHERE id = $${COLUMNS.length + 1} RETURNING *`,
+      `UPDATE links SET ${sets} WHERE id = $${COLUMNS.length + 1} AND deleted_at IS NULL RETURNING *`,
       [...values, id]
     )
     const link = updated.rows[0]
