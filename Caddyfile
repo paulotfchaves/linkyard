@@ -1,0 +1,68 @@
+# TLS and routing for the Docker Compose install.
+#
+# REQUIRES A CUSTOM CADDY BUILD. The Cloudflare DNS provider is a separate
+# module and Caddy loads no plugins at runtime, so the binary must be built
+# with it:
+#
+#     xcaddy build --with github.com/caddy-dns/cloudflare
+#
+# docker-compose.yml does exactly that in the `caddy` service. Stock
+# caddy:2-alpine will start and then fail every certificate with
+# "unrecognized DNS provider: cloudflare".
+
+{
+	email {env.ACME_EMAIL}
+}
+
+# One wildcard certificate, obtained over DNS-01, shared by every redirect host.
+#
+# This is the whole reason the VPS target exists in this shape: with `*.apex`
+# already covered, a new redirect subdomain answers HTTPS the moment its DNS
+# record resolves. The HTTP-01 alternative would make the operator wait for an
+# issuance per host, and would fail outright for any host not yet public.
+(linkyard_tls) {
+	tls {
+		# {env.X} is read at run time; {$X} would be substituted while the
+		# Caddyfile is parsed and the token would then appear in the output of
+		# `caddy adapt` and in config dumps.
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+
+		# Ask a public resolver whether the challenge record has propagated.
+		# The default is the container's resolver, which may still be serving
+		# the pre-change answer from its own cache and stall the issuance.
+		resolvers 1.1.1.1 1.0.0.1
+	}
+}
+
+# The panel. Listed before the wildcard on purpose — when the panel lives under
+# the redirect apex, Caddy matches the more specific site block, so this wins
+# over *.{$LINKYARD_REDIRECT_APEX} below.
+{$LINKYARD_PANEL_HOST} {
+	import linkyard_tls
+	encode zstd gzip
+	reverse_proxy panel:3000
+}
+
+# Every redirect host, plus the apex itself.
+#
+# The apex is here because it must never answer 404: a redirect domain whose
+# root is empty reads as disposable to the WhatsApp and Meta scanners and is
+# more likely to be blocked. The edge serves it according to the domain's
+# root_policy.
+#
+# The wildcard covers one label. A host like `a.b.{$LINKYARD_REDIRECT_APEX}`
+# needs its own certificate and its own site block.
+{$LINKYARD_REDIRECT_APEX}, *.{$LINKYARD_REDIRECT_APEX} {
+	import linkyard_tls
+
+	# No security headers set here. The edge sends its own HSTS,
+	# Referrer-Policy and X-Content-Type-Options on the redirect, and a second
+	# copy from the proxy would either duplicate the header or silently
+	# contradict it.
+	#
+	# reverse_proxy appends the client address to X-Forwarded-For; the edge
+	# reads the rightmost entry — the one Caddy itself wrote — for the click's
+	# IP hash and geo lookup. Trusting an earlier entry would let a caller
+	# choose their own country.
+	reverse_proxy edge:3100
+}

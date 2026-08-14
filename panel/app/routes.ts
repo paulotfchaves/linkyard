@@ -10,7 +10,10 @@ export default [
   route('links/new', 'routes/link-new.tsx'),
   route('links/:id', 'routes/link-edit.tsx'),
   route('links/bulk', 'routes/links.bulk.tsx'),
+  route('domains', 'routes/domains.tsx'),
+  route('members', 'routes/members.tsx'),
   route('reports', 'routes/reports.tsx'),
   route('reports/export', 'routes/reports.export.ts'),
   route('trash', 'routes/trash.tsx'),
+  route('join', 'routes/join.tsx'),
 ] satisfies RouteConfig

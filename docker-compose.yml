@@ -1,0 +1,142 @@
+# Linkyard on any Linux VPS.
+#
+#   cp .env.example .env      # then fill it in — see docs/INSTALL.md
+#   docker compose up -d
+#
+# Four containers: postgres, edge, panel, caddy. Caddy terminates TLS with a
+# wildcard certificate so a new redirect subdomain works the moment its DNS
+# record exists, with no per-host certificate wait.
+
+name: linkyard
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No published port. A redirect box is a public target by definition, and
+    # 5432 reachable from the internet is how one becomes somebody else's.
+    # `docker compose exec postgres psql` covers every legitimate need.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  edge:
+    build:
+      context: .
+      dockerfile: edge/Dockerfile
+    restart: unless-stopped
+    environment:
+      # Assembled from the three POSTGRES_* values so there is only one place to
+      # change a password. Set DATABASE_URL in .env to override it — that is the
+      # path for pointing at a database this file does not manage.
+      #
+      # Credentials ride as query parameters, which libpq and node-postgres both
+      # accept, so that no user:password@host string exists in a public
+      # repository for someone to copy the shape of.
+      #
+      # No sslmode. This is a private bridge network and the postgres image
+      # serves plain TCP, so asking for TLS here fails the handshake at boot —
+      # the same mistake that costs a Railway deploy, for the same reason.
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:5432/${POSTGRES_DB}?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}}
+      PORT: 3100
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      IP_HASH_SALT: ${IP_HASH_SALT}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  panel:
+    build:
+      context: .
+      dockerfile: panel/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:5432/${POSTGRES_DB}?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}}
+      PORT: 3000
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      IP_HASH_SALT: ${IP_HASH_SALT}
+      SETUP_TOKEN: ${SETUP_TOKEN}
+      PANEL_ORIGIN: https://${LINKYARD_PANEL_HOST}
+      # vps mode: the panel writes DNS, and Caddy's wildcard already covers the
+      # certificate, so there is no infrastructure host to create per subdomain.
+      INFRA_PROVIDER: vps
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    # Stock caddy cannot solve a DNS-01 challenge: the Cloudflare provider is a
+    # separate module and Caddy has no plugin system at runtime, so the binary
+    # is rebuilt with it. This is the caddy-dns/cloudflare build the docs refer
+    # to, and it is why this service builds instead of pulling caddy:2-alpine.
+    build:
+      dockerfile_inline: |
+        FROM caddy:2-builder-alpine AS builder
+        RUN xcaddy build --with github.com/caddy-dns/cloudflare
+        FROM caddy:2-alpine
+        COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      LINKYARD_PANEL_HOST: ${LINKYARD_PANEL_HOST}
+      LINKYARD_REDIRECT_APEX: ${LINKYARD_REDIRECT_APEX}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy-data holds the issued certificates and the ACME account key.
+      # Losing it means re-issuing every certificate on the next start, which
+      # runs into Let's Encrypt rate limits and takes the links down with it.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - edge
+      - panel
+
+  # Not started by `up`. Run it when something is wrong:
+  #   docker compose run --rm doctor
+  # It builds its own tiny image because the panel image ships only what it
+  # needs to serve, and scripts/ is not part of that.
+  doctor:
+    profiles: ["doctor"]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM node:24-alpine
+        WORKDIR /app
+        # All three workspace manifests, even though only db/ is used at run
+        # time: npm ci validates the lockfile against every workspace declared
+        # in the root package.json and fails on the ones it cannot find.
+        COPY package.json package-lock.json ./
+        COPY core/package.json ./core/
+        COPY db/package.json ./db/
+        COPY panel/package.json ./panel/
+        RUN npm ci --omit=dev
+        COPY db ./db
+        COPY scripts ./scripts
+        ENTRYPOINT ["node", "scripts/doctor.mjs"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:5432/${POSTGRES_DB}?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}}
+      LINKYARD_HEALTH_PATH: ${LINKYARD_HEALTH_PATH:-/healthz}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

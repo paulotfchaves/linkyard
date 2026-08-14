@@ -12,7 +12,8 @@
   "workspaces": [
     "db",
     "core",
-    "panel"
+    "panel",
+    "edge"
   ],
   "scripts": {
     "test": "node --test --test-concurrency=1",
