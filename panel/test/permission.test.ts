@@ -10,6 +10,7 @@ import {
   can,
   loadGrants,
   requirePermission,
+  resolvePermissions,
 } from '../app/lib/permission.server.ts'
 import type { Actor, Grant, PermissionRequest } from '../app/lib/permission.server.ts'
 import { closePool } from '../app/lib/db.server.ts'
@@ -276,6 +277,56 @@ describe('loadGrants', () => {
   it('ignores grants belonging to another user', async () => {
     const grants = await loadGrants(users.admin)
     assert.deepEqual(grants, [])
+  })
+})
+
+describe('resolvePermissions', () => {
+  // These drive what the page renders. A viewer shown an Edit link on every row
+  // and the checkboxes to bulk-edit them learns the answer is 403 only after
+  // filling the form, which is its own defect in a product sold on per-member
+  // permissions.
+  it('reports a viewer as unable to create or update', async () => {
+    assert.deepEqual(
+      await resolvePermissions({ id: users.viewer, role: 'viewer' }, {
+        create: { resource: 'link', action: 'create' },
+        update: { resource: 'link', action: 'update' },
+      }),
+      { create: false, update: false }
+    )
+  })
+
+  it('reports an editor as able to do both', async () => {
+    assert.deepEqual(
+      await resolvePermissions({ id: users.editor, role: 'editor' }, {
+        create: { resource: 'link', action: 'create' },
+        update: { resource: 'link', action: 'update' },
+      }),
+      { create: true, update: true }
+    )
+  })
+
+  it('answers per capability, so a grant covering one does not imply the other', async () => {
+    // globalViewer holds link:delete and nothing else. Collapsing the two into
+    // one "canWrite" flag would light up create and update off a delete grant.
+    assert.deepEqual(
+      await resolvePermissions({ id: users.globalViewer, role: 'viewer' }, {
+        create: { resource: 'link', action: 'create' },
+        delete: { resource: 'link', action: 'delete' },
+      }),
+      { create: false, delete: true }
+    )
+  })
+
+  it('honours the scope of a grant, matching what requirePermission would enforce', async () => {
+    const scoped = { id: users.scopedViewer, role: 'viewer' as const }
+    const inScope = await resolvePermissions(scoped, {
+      update: { resource: 'link', action: 'update', domainId: domains.a },
+    })
+    const outOfScope = await resolvePermissions(scoped, {
+      update: { resource: 'link', action: 'update', domainId: domains.b },
+    })
+    assert.equal(inScope.update, true)
+    assert.equal(outOfScope.update, false)
   })
 })
 

@@ -7,3 +7,11 @@ node_modules/
 coverage/
 .tmp/
 .tmp-scan-probe.txt
+
+# Operator-local wrangler config: carries this account KV namespace id.
+setup/worker/wrangler.local.jsonc
+
+# Agent memory: written by tooling inside the workspace, never part of the
+# published repository. One such file carried the name of a work account into
+# git history and the publication gate caught it.
+.claude/agent-memory/

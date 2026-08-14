@@ -8,7 +8,7 @@
   "main": "src/server.mjs",
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test --test-concurrency=1 test/"
+    "test": "node --test --test-concurrency=1"
   },
   "dependencies": {
     "pg": "^8.13.0"

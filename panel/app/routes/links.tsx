@@ -1,7 +1,7 @@
 import { Form, Link, useLoaderData, useSearchParams } from 'react-router'
 import { useState } from 'react'
 import { requireSession, withRefresh } from '~/lib/auth.server.ts'
-import { requirePermission } from '~/lib/permission.server.ts'
+import { requirePermission, resolvePermissions } from '~/lib/permission.server.ts'
 import { listLinks, linkStatus, type LinkStatus } from '~/lib/links.server.ts'
 import { query } from '~/lib/db.server.ts'
 import { t, type Locale } from '~/lib/i18n/index.ts'
@@ -30,6 +30,14 @@ export async function loader({ request }: { request: Request }) {
     page: Number(url.searchParams.get('page') ?? '1') || 1,
   }
 
+  // Two capabilities, not one: creating a link and editing existing ones are
+  // separate grants, and a role that has one without the other is a role the
+  // grant model allows.
+  const capabilities = await resolvePermissions(session.user, {
+    create: { resource: 'link', action: 'create' },
+    update: { resource: 'link', action: 'update' },
+  })
+
   const [{ rows, total, page, perPage }, domains, tags] = await Promise.all([
     listLinks(filters),
     query<{ id: string; apex: string }>('SELECT id, apex FROM domains ORDER BY apex'),
@@ -51,6 +59,7 @@ export async function loader({ request }: { request: Request }) {
     {
       user: session.user,
       locale: session.locale,
+      capabilities,
       links,
       domains,
       tags,
@@ -66,6 +75,7 @@ export async function loader({ request }: { request: Request }) {
 type LoaderData = {
   user: { username: string; email: string; role: string; timezone: string }
   locale: Locale
+  capabilities: { create: boolean; update: boolean }
   links: LinkRowView[]
   domains: Array<{ id: string; apex: string }>
   tags: Array<{ id: string; name: string }>
@@ -124,12 +134,14 @@ export default function Links() {
       <PageHeader
         title={t(locale, 'links.title')}
         actions={
-          <Link to="/links/new" className="btn btn--primary">
-            {t(locale, 'links.new')}
-            <span className="btn__arrow" aria-hidden="true">
-              ↗
-            </span>
-          </Link>
+          data.capabilities.create ? (
+            <Link to="/links/new" className="btn btn--primary">
+              {t(locale, 'links.new')}
+              <span className="btn__arrow" aria-hidden="true">
+                ↗
+              </span>
+            </Link>
+          ) : null
         }
       />
 
@@ -139,12 +151,14 @@ export default function Links() {
           script="yet"
           body={t(locale, 'links.table.empty.body')}
           action={
-            <Link to="/links/new" className="btn btn--primary">
-              {t(locale, 'links.table.empty.action')}
-              <span className="btn__arrow" aria-hidden="true">
-                ↗
-              </span>
-            </Link>
+            data.capabilities.create ? (
+              <Link to="/links/new" className="btn btn--primary">
+                {t(locale, 'links.table.empty.action')}
+                <span className="btn__arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </Link>
+            ) : null
           }
         />
       ) : (
@@ -197,6 +211,7 @@ export default function Links() {
             labels={labels}
             selected={selected}
             onSelectedChange={setSelected}
+            canWrite={data.capabilities.update}
           />
 
           <div className="pager">
@@ -228,7 +243,7 @@ export default function Links() {
           </div>
 
           <BulkBar
-            selected={selected}
+            selected={data.capabilities.update ? selected : []}
             tags={data.tags}
             labels={bulkLabels(locale)}
             locale={locale}

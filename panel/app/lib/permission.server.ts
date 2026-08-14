@@ -132,6 +132,27 @@ export async function requirePermission(user: Actor, req: PermissionRequest): Pr
   throw forbidden(`${req.action} on ${req.resource} is not allowed`)
 }
 
+/**
+ * The same decision, asked rather than enforced.
+ *
+ * This does not move authorization into the interface — the server still
+ * decides, here, and every write path still calls requirePermission. It lets a
+ * loader publish what it decided so the page stops offering what it will then
+ * refuse: a viewer was shown an Edit link on all 42 rows, the checkboxes to
+ * select them and a New link button, and learned only after filling the form
+ * that the answer was 403. Rendering an action that cannot succeed is its own
+ * defect, in a product whose whole pitch is per-member permissions.
+ */
+export async function resolvePermissions<K extends string>(
+  user: Actor,
+  requests: Record<K, PermissionRequest>
+): Promise<Record<K, boolean>> {
+  const grants = await loadGrants(user.id)
+  const out = {} as Record<K, boolean>
+  for (const key of Object.keys(requests) as K[]) out[key] = can(user, grants, requests[key])
+  return out
+}
+
 // Ownership is transferred by an explicit, audited action, never as a side
 // effect of an admin editing a user row.
 /**

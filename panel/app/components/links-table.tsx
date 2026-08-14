@@ -88,11 +88,17 @@ export function LinksTable({
   labels,
   selected,
   onSelectedChange,
+  // Decided by the loader, never here. The table is told what the server
+  // already ruled so it can stop offering a viewer an Edit link on every row
+  // and the checkboxes to bulk-edit them — actions that only ever ended in a
+  // 403 after the click.
+  canWrite = true,
 }: {
   rows: LinkRowView[]
   labels: TableLabels
   selected: string[]
   onSelectedChange: (ids: string[]) => void
+  canWrite?: boolean
 }) {
   const pageIds = rows.map((r) => r.id)
   const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.includes(id))
@@ -113,17 +119,24 @@ export function LinksTable({
 
   return (
     <div className="card table-wrap">
-      <table className="table">
+      {/* Without the checkbox column the identity moves to the first cell, and
+          the stacked-card rule that strips the label from the second one would
+          be off by one — labelling the identity and unlabelling its neighbour.
+          The modifier states which column is the identity rather than counting
+          on a column that is only there for some roles. */}
+      <table className={canWrite ? 'table' : 'table table--identity-first'}>
         <thead>
           <tr>
-            <th className="table__check">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleAll}
-                aria-label={labels.selectAll}
-              />
-            </th>
+            {canWrite && (
+              <th className="table__check">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label={labels.selectAll}
+                />
+              </th>
+            )}
             <th>{labels.slug}</th>
             <th>{labels.destination}</th>
             <th>{labels.tag}</th>
@@ -137,14 +150,16 @@ export function LinksTable({
             const isSelected = selected.includes(row.id)
             return (
               <tr key={row.id} data-selected={isSelected || undefined}>
-                <td className="table__check" data-label="">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggle(row.id)}
-                    aria-label={`${labels.selectRow}: ${shortUrl(row)}`}
-                  />
-                </td>
+                {canWrite && (
+                  <td className="table__check" data-label="">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggle(row.id)}
+                      aria-label={`${labels.selectRow}: ${shortUrl(row)}`}
+                    />
+                  </td>
+                )}
                 <td data-label={labels.slug}>
                   <span className="slug-cell">
                     {row.isPinned && (
@@ -167,9 +182,11 @@ export function LinksTable({
                 </td>
                 <td className="table__num tabular" data-label={labels.clicks}>{row.clicks.toLocaleString()}</td>
                 <td className="table__num row-actions" data-label="">
-                  <Link to={`/links/${row.id}`} className="row-edit">
-                    {labels.edit}
-                  </Link>
+                  {canWrite && (
+                    <Link to={`/links/${row.id}`} className="row-edit">
+                      {labels.edit}
+                    </Link>
+                  )}
                 </td>
               </tr>
             )

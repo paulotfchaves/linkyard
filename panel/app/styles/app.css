@@ -650,10 +650,21 @@ textarea {
   color: var(--muted);
 }
 
+/* 1.5rem is the floor, and it is not conditional on the pointer.
+   The coarse-pointer rule below raises these to a thumb's size, but a minimum
+   target is not a touch concern — a hand that shakes drives a mouse too, and
+   the published minimum asks for 24px whatever is doing the pointing. Leaving
+   it behind the media query meant the densest table in the product handed a
+   13px checkbox to every desktop visitor. */
 .icon-btn {
   background: transparent;
   border: none;
   padding: 0.125rem 0.25rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-tag);
   color: var(--faint);
   cursor: pointer;
@@ -672,6 +683,38 @@ textarea {
   color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
+  min-height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The row checkbox, at the same floor. The browser default is 13px, which is
+   the smallest interactive thing in the panel and sits in a table where every
+   neighbouring row carries an identical one — so the spacing exception that
+   forgives a small target does not apply here either. The box keeps its own
+   size; ::after does the reaching, so the column width never moves. */
+.table__check {
+  position: relative;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}
+
+.table__check input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The hit area is the cell, exactly. Anchoring to `inset: 0` against the cell —
+   rather than reaching outward with a negative inset — means the target can
+   never extend past its own container, and an absolutely positioned box that
+   overhangs still counts toward an ancestor's scroll width even though it costs
+   no layout space. That is precisely how an earlier version of this rule gave a
+   320px phone a horizontal scrollbar. The cell carries the 24px minimum, so the
+   checkbox keeps its 16px look and the column keeps its width. */
+.table__check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .row-edit:hover {
@@ -843,10 +886,14 @@ textarea {
   align-items: center;
 }
 
+/* The label is the target here — it wraps the box and its text, so a click
+   anywhere on the phrase toggles it. The floor is stated anyway rather than
+   left to the line height, so the guarantee survives a future type change. */
 .editor__check {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 1.5rem;
   font-size: var(--fs-body);
 }
 
@@ -1012,34 +1059,25 @@ textarea {
   }
 }
 
-/* Touch targets. On a coarse pointer the checkbox, the copy button and the row
-   link were all under 24px, which is below every published minimum and well
-   below what a thumb actually hits. The visual size stays; the hit area grows
-   through padding and a pseudo-element, so the density of the table survives. */
+/* Touch targets. The 24px floor above applies everywhere; this raises it to a
+   thumb's size where the pointer is a thumb. The visual size stays; the hit
+   area grows through padding and a pseudo-element, so the density of the table
+   survives either way. */
 @media (pointer: coarse) {
   .icon-btn,
   .row-edit {
     position: relative;
     min-height: 2.75rem;
-    display: inline-flex;
-    align-items: center;
     padding-inline: 0.5rem;
+  }
+
+  .table__check {
+    min-height: 2.75rem;
   }
 
   .table__check input[type="checkbox"] {
     width: 1.25rem;
     height: 1.25rem;
-  }
-
-  /* Grows the hit area without growing the layout. The inset is asymmetric
-     because a symmetric one reaches past the card edge, and an absolutely
-     positioned box still counts toward an ancestor's scroll width even when it
-     costs no layout space — which is how a 12px pseudo-element gave a 320px
-     phone a horizontal scrollbar. */
-  .table__check input[type="checkbox"]::after {
-    content: "";
-    position: absolute;
-    inset: -0.625rem -0.25rem -0.625rem -0.25rem;
   }
 
   .table__check {
