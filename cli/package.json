@@ -1,9 +1,34 @@
 {
-  "name": "@linkyard/cli",
+  "name": "linkyard",
   "version": "0.1.0",
-  "private": true,
+  "description": "Write the .env for a self-hosted Linkyard install. Generates every secret locally and talks to no network.",
   "type": "module",
-  "bin": { "linkyard": "./src/index.mjs" },
+  "license": "MIT",
+  "author": "Paulo Chaves <me@paulochaves.dev> (https://paulochaves.dev)",
+  "homepage": "https://github.com/paulotfchaves/linkyard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paulotfchaves/linkyard.git",
+    "directory": "cli"
+  },
+  "bugs": "https://github.com/paulotfchaves/linkyard/issues",
+  "keywords": [
+    "linkyard",
+    "redirect",
+    "url-shortener",
+    "self-hosted",
+    "installer"
+  ],
+  "bin": {
+    "linkyard": "./src/index.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test --test-concurrency=1"
   }

@@ -111,7 +111,27 @@ cd linkyard
 cp .env.example .env
 ```
 
-Copy `.env.example` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
+You can write it with one command, or by hand.
+
+**With the command.** It is not published to npm yet, so run it from the clone — which also means you need Node 22+, and a fresh VPS does not have it:
+
+```bash
+node cli/src/index.mjs install
+```
+
+It asks for the panel host, the redirect domain and an email for the certificate, generates each secret separately, and writes `.env` readable only by you. It talks to no network: nothing it produces leaves the machine. Non-interactively:
+
+```bash
+node cli/src/index.mjs install \
+  --panel-host panel.example.com \
+  --redirect-apex example.com \
+  --email you@example.com \
+  --yes
+```
+
+It refuses to overwrite an existing `.env` without `--force`, because replacing `ENCRYPTION_KEY` makes every credential already stored unreadable.
+
+**By hand:** copy `.env.example` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
 
 ```bash
 openssl rand -hex 32
@@ -122,8 +142,6 @@ Do not reuse one value for several variables, and do not invent them by hand.
 Then set `LINKYARD_PANEL_HOST` to the panel hostname you created above, `LINKYARD_REDIRECT_APEX` to the apex your short links live under, and `CLOUDFLARE_API_TOKEN` to the token from the previous step.
 
 Leave `DATABASE_URL` alone. `docker-compose.yml` assembles it from `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, so the password exists in one place and cannot drift. Set it only if you are pointing Linkyard at a database Compose does not manage — and in that case, do not add `?sslmode=require` unless that server really speaks TLS. A local or private-network Postgres serves plain TCP and refuses the handshake, and the crash looks like an outage.
-
-> **A helper exists, but is not published yet.** The repository ships `cli/`, which writes this file for you — it generates each secret separately, sets the file to owner-only, refuses to overwrite an existing `.env` (that would orphan every credential already encrypted), and talks to no network. Until it is published to npm, `npx linkyard install` will not resolve; run it from a clone with `node cli/src/index.mjs install`, on a machine that has Node.
 
 ### 3. Start
 

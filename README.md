@@ -13,16 +13,27 @@ infrastructure: a Docker Compose install on a Linux VPS, with a wildcard
 certificate from Let's Encrypt over the Cloudflare DNS challenge, and the
 Railway path behind the surfaces linked below.
 
-Not released means: no npm package yet, no published Railway template, no
-tagged version. Installing today means cloning this repository.
+## Install
 
-## Install targets
+**Any Linux VPS**, with Docker Compose:
 
-- **Any Linux VPS** — Docker Compose
-- **Railway** — one-click template, CLI, or the hosted setup panel
+```bash
+git clone https://github.com/paulotfchaves/linkyard.git
+cd linkyard
+cp .env.example .env      # then fill it in — docs/INSTALL.md walks through it
+docker compose up -d
+```
 
-Running the three services on Railway costs roughly US$ 5.50–7.00 per month.
-The US$ 5 Hobby plan does not cover it.
+The repository also ships `cli/`, which writes that `.env` for you: it generates
+each secret separately, sets the file owner-only, and talks to no network. It is
+not on npm yet, so run it from the clone with `node cli/src/index.mjs install`.
+
+**Railway**, three services. See [docs/INSTALL.md](docs/INSTALL.md) for both
+paths in full, including the DNS records and the Cloudflare token scope.
+
+Running the three services on Railway costs roughly US$ 5.50-7.00 per month.
+The US$ 5 Hobby plan does not cover it, and the installer says so before it
+deploys anything.
 
 ## Development
 
