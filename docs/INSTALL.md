@@ -113,16 +113,16 @@ cp .env.example .env
 
 You can write it with one command, or by hand.
 
-**With the command.** It is not published to npm yet, so run it from the clone — which also means you need Node 22+, and a fresh VPS does not have it:
+**With the command** (needs Node 22+, which a fresh VPS does not have — install it, or use the by-hand path below):
 
 ```bash
-node cli/src/index.mjs install
+npx linkyard install
 ```
 
 It asks for the panel host, the redirect domain and an email for the certificate, generates each secret separately, and writes `.env` readable only by you. It talks to no network: nothing it produces leaves the machine. Non-interactively:
 
 ```bash
-node cli/src/index.mjs install \
+npx linkyard install \
   --panel-host panel.example.com \
   --redirect-apex example.com \
   --email you@example.com \

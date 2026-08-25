@@ -6,12 +6,19 @@ Self-hosted redirect and short-link manager. Point your own domains at it, creat
 short links with UTMs and custom parameters, schedule destination swaps, and see
 who clicked — without handing your traffic to a third party.
 
+[![npm](https://img.shields.io/npm/v/linkyard)](https://www.npmjs.com/package/linkyard)
+[![CI](https://github.com/paulotfchaves/linkyard/actions/workflows/ci.yml/badge.svg)](https://github.com/paulotfchaves/linkyard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ## Status
 
-Working, not yet released. Both install paths have been run end to end on real
+Working. Both install paths have been run end to end on real
 infrastructure: a Docker Compose install on a Linux VPS, with a wildcard
 certificate from Let's Encrypt over the Cloudflare DNS challenge, and the
 Railway path behind the surfaces linked below.
+
+The one-click Railway template is not published yet; the other three ways in —
+Compose, the CLI, and the hosted setup panel — are.
 
 ## Install
 
@@ -20,13 +27,14 @@ Railway path behind the surfaces linked below.
 ```bash
 git clone https://github.com/paulotfchaves/linkyard.git
 cd linkyard
-cp .env.example .env      # then fill it in — docs/INSTALL.md walks through it
+npx linkyard install      # writes .env; every secret generated locally
 docker compose up -d
 ```
 
-The repository also ships `cli/`, which writes that `.env` for you: it generates
-each secret separately, sets the file owner-only, and talks to no network. It is
-not on npm yet, so run it from the clone with `node cli/src/index.mjs install`.
+`npx linkyard install` talks to no network — it generates each secret
+separately, writes the file owner-only, and nothing it produces leaves your
+machine. If you would rather do it by hand, copy `.env.example` instead;
+[docs/INSTALL.md](docs/INSTALL.md) walks through every variable.
 
 **Railway**, three services. See [docs/INSTALL.md](docs/INSTALL.md) for both
 paths in full, including the DNS records and the Cloudflare token scope.
