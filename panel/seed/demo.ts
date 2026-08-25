@@ -871,7 +871,12 @@ export async function seedDemo(pool: Pool, opts: SeedOptions = {}): Promise<Seed
 
   // The launch is forced onto a weekday: a spike that lands on a Sunday reads as
   // a glitch, because it collides with the weekend trough it is meant to dwarf.
-  let spikeDay = Math.round(days * (60 / 90))
+  // Day 75 of 90, not 60. The default report window is the last 30 days, which
+  // begins exactly at day 60 — so a launch there landed on the first column,
+  // flattening the other twenty-nine against it and putting the peak label on
+  // the left edge. At 75 the spike sits mid-window in the 30-day view and still
+  // well inside the 90-day one.
+  let spikeDay = Math.round(days * (75 / 90))
   while (spikeDay > 0 && spikeDay < days) {
     const weekday = new Date(addDays(firstDay, spikeDay)).getUTCDay()
     if (weekday !== 0 && weekday !== 6) break
