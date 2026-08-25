@@ -40,12 +40,14 @@ If you want to spend less than that, use [your own server](#install-on-your-own-
 
 **1. Create a Railway account.** Go to [railway.com](https://railway.com) and sign up with GitHub. Add a payment method — without one, Railway will not run three services.
 
-**2. Create the three services.** Use the Linkyard template if you have its link; otherwise create a project and add three services yourself, following `railway-template.json` in this repository. That file lists, for each service, exactly which image or Dockerfile to use and which variables to set.
+**2. Create the three services.** Create a project and add three services, following `railway-template.json` in this repository: it lists, for each one, exactly which image or Dockerfile to use and which variables to set. There is no published one-click template — see [the note below](#why-there-is-no-deploy-button).
+
+If you would rather not do this by hand, the hosted setup panel at [linkyard.paulochaves.dev](https://linkyard.paulochaves.dev) provisions the same three services into your own Railway account and then deletes the token you gave it.
 
 Two things in it are easy to get wrong and expensive to debug:
 
 - **`DATABASE_URL` must not end in `?sslmode=require`.** Inside a Railway project the services talk over a private network that speaks plain TCP. Asking for TLS there makes Postgres refuse the connection, and the crash looks exactly like the database being down. It is not.
-- **`ENCRYPTION_KEY` and `IP_HASH_SALT` must be the *same value* on `edge` and `panel`.** The template has the panel generate them and the edge borrow them. Verify it — see step 4.
+- **`ENCRYPTION_KEY` and `IP_HASH_SALT` must be the *same value* on `edge` and `panel`.** In `railway-template.json` the panel generates them and the edge borrows them by reference. Verify it — see step 4.
 
 **3. Wait for the first deploy.** Each service shows a log. `postgres` starts in seconds. `panel` takes a couple of minutes to build, and on its first start it creates the database tables itself; you will see `migrations applied: 001_identity, ...` in its log. If a deploy fails, the log says why, and the last twenty lines are usually the whole story.
 
@@ -211,6 +213,23 @@ DATABASE_URL=... npm run backup import linkyard-backup.json
 ```
 
 The dry run does the whole restore and rolls it back, so what it reports is what would really happen. A restore is a merge, keyed on natural identity — a domain by its apex, a link by host and slug — so running the same file twice changes nothing the second time, and restoring into a database that already has links adds only what is missing.
+
+## Why there is no deploy button
+
+Railway's API can only turn an **existing project** into a template, so
+publishing one means first deploying the three services somewhere and paying
+for them. The web editor builds a recipe without running anything, and that is
+the route this repository documents in
+[PUBLISHING-THE-TEMPLATE.md](PUBLISHING-THE-TEMPLATE.md) for anyone who wants
+to publish their own.
+
+A template also carries a creator and a payout account, so publishing one from
+the wrong account attributes the work to the wrong person — which is why this
+one has not simply been pushed out from whichever account had a plan attached.
+
+Nothing is missing because of it. The template would create exactly the three
+services described above, which the setup panel already does, without leaving a
+copy of your Railway token behind.
 
 ## When something is wrong
 

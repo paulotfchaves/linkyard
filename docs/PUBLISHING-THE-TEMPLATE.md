@@ -1,12 +1,18 @@
-# Publishing the Railway template
+# Publishing a Railway template
 
-The Railway API can only turn an **existing project** into a template
-(`templateGenerate(projectId)`), so publishing through it would mean deploying
-the three services somewhere first and paying for them. The web editor builds
-the recipe without running anything, which is why this is done by hand.
+Linkyard has no published one-click template, and this describes how to make
+one — for anyone running their own copy, or for a later change of mind here.
 
-Go to **railway.com/new/template** while signed in as `paulotfchaves`, and add
-three services.
+Two things force it to be done by hand. The API can only turn an **existing
+project** into a template (`templateGenerate(projectId)`), so publishing that
+way means deploying the three services somewhere first and paying for them. And
+a published template carries a `creator`, an avatar and a `totalPayout`
+account, so it has to be published from the account that should be credited —
+not from whichever one happens to have a plan attached.
+
+The web editor builds the recipe without running anything. Go to
+**railway.com/new/template**, signed in as the account that should own it, and
+add three services.
 
 ## 1. postgres
 
@@ -109,7 +115,8 @@ the one place that stays quiet about it.
 
 ## After publishing
 
-Add the deploy button to `README.md`:
+Add the deploy button to `README.md`, and drop the "no deploy button" note from
+`docs/INSTALL.md`:
 
 ```markdown
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template/YOUR_TEMPLATE_CODE)

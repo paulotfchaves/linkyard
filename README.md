@@ -17,8 +17,10 @@ infrastructure: a Docker Compose install on a Linux VPS, with a wildcard
 certificate from Let's Encrypt over the Cloudflare DNS challenge, and the
 Railway path behind the surfaces linked below.
 
-The one-click Railway template is not published yet; the other three ways in —
-Compose, the CLI, and the hosted setup panel — are.
+There is no one-click Railway button, and none is planned for now. The three
+ways in — Compose, the CLI, and the hosted setup panel — cover the same ground;
+the setup panel in particular does something a template cannot, which is delete
+the Railway token it was given once the install finishes.
 
 ## Install
 
