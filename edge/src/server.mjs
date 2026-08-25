@@ -31,6 +31,7 @@ import {
 } from './root.mjs'
 
 const SCHEDULER_INTERVAL_MS = 60_000
+const USAGE_SAMPLE_INTERVAL_MS = 3_600_000
 
 function splitUrl(rawUrl) {
   const url = rawUrl || '/'
@@ -219,6 +220,11 @@ export function createEdgeServer({
  */
 export function startScheduler(pool, intervalMs = SCHEDULER_INTERVAL_MS) {
   let running = false
+  // The usage monitor samples hourly, not every minute: the provider's own
+  // figures move on that scale, and a per-minute poll would spend an API call
+  // a minute to redraw the same number. Tracked here rather than on its own
+  // timer so it inherits the same "never stacks on itself" guard.
+  let lastUsageSampleAt = 0
   const tick = async () => {
     // A tick that outlasts its interval must not stack on itself.
     if (running) return
@@ -243,6 +249,24 @@ export function startScheduler(pool, intervalMs = SCHEDULER_INTERVAL_MS) {
       await rollupRecent(2)
     } catch (err) {
       console.error('rollup:', err?.message ?? err)
+    }
+
+    // The cost monitor. It rides this tick for the same reason as the others:
+    // this is the process that stays up. Without it the projection has nothing
+    // to read, so the panel shows "no sample yet" forever on an installation
+    // that is quietly heading past its plan — the exact situation the monitor
+    // exists to catch before the invoice does.
+    try {
+      const elapsed = Date.now() - lastUsageSampleAt
+      if (elapsed >= USAGE_SAMPLE_INTERVAL_MS) {
+        const { sampleUsage } = await import('../../panel/app/lib/usage.server.ts')
+        await sampleUsage()
+        lastUsageSampleAt = Date.now()
+      }
+    } catch (err) {
+      // Never fatal: a monitor nobody is watching must not take the redirect
+      // service, the scheduler or the rollup down with it.
+      console.error('usage:', err?.message ?? err)
     } finally {
       running = false
     }

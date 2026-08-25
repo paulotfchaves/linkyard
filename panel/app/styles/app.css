@@ -1554,3 +1554,98 @@ textarea {
     padding-bottom: 0.75rem;
   }
 }
+
+/* ── Plan usage ────────────────────────────────────────────────────────────
+   The one screen in the panel whose job is to be read once and acted on, so it
+   states the figure at display size and spends nothing on decoration around it.
+
+   The level drives colour, and only colour that already exists: --danger for
+   over, --primary for the warning. Ember is the accent of this product, and a
+   projection heading past the plan is exactly the moment the accent earns its
+   place. Nothing here is colour-only — the headline says the level in words,
+   because a red bar means nothing to a reader who cannot see it as red. */
+.usage {
+  padding: var(--card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usage__headline {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.usage__figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.usage__figure strong {
+  font-size: var(--fs-display);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.usage__bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--hairline);
+  overflow: hidden;
+}
+
+.usage__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transition: width var(--t-state) var(--ease);
+}
+
+.usage[data-level='warning'] .usage__bar-fill,
+.usage[data-level='warning'] .usage__figure strong {
+  color: var(--primary);
+  background: var(--primary);
+}
+
+.usage[data-level='over'] .usage__bar-fill,
+.usage[data-level='over'] .usage__figure strong {
+  color: var(--danger);
+  background: var(--danger);
+}
+
+/* The figure is text: it takes the colour, never the fill. */
+.usage__figure strong {
+  background: none;
+}
+
+.usage__cycle {
+  font-size: var(--fs-small);
+}
+
+.usage__advice {
+  margin-top: 1rem;
+  padding: var(--card-pad);
+}
+
+.usage__advice-title {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.625rem;
+}
+
+.usage__advice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-left: 1.125rem;
+}
+
+.usage__advice-list li {
+  list-style: disc;
+}

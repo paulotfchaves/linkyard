@@ -10,6 +10,7 @@ export function navFor(locale: Locale) {
     { to: '/reports', label: t(locale, 'reports.title') },
     { to: '/members', label: t(locale, 'nav.members') },
     { to: '/trash', label: t(locale, 'trash.title') },
+    { to: '/usage', label: t(locale, 'usage.title') },
   ]
 }
 

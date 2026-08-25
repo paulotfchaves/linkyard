@@ -757,7 +757,26 @@ const HOUR_WEIGHTS = [
 const TIER_BASE: Record<Tier, number> = { hero: 40, strong: 15, normal: 4, quiet: 1.5 }
 
 // Sunday-indexed, matching Date#getUTCDay.
-const WEEKDAY_FACTOR = [0.42, 1.05, 1.12, 1.08, 1, 0.9, 0.48] as const
+export const WEEKDAY_FACTOR = [0.42, 1.05, 1.12, 1.08, 1, 0.9, 0.48] as const
+
+/**
+ * How much of the weekly rhythm survives a launch day.
+ *
+ * During the launch the campaign is what drives traffic, not the office week,
+ * so the weekday factor is damped toward flat. Left undamped it cancels the
+ * spike curve exactly when the curve is the point: a peak on a Monday (1.05)
+ * followed by a Tuesday (1.12) gives 8 x 1.05 against 5 x 1.12 — a ratio of
+ * 1.5, so the two tallest bars come out level and the chart reads as a step
+ * change rather than an event. Which weekday the peak lands on depends on the
+ * date the seed runs, so the demo looked right on most days and wrong on the
+ * rest, with nothing in the data to explain why.
+ *
+ * Exported so the property can be checked for every weekday the peak can fall
+ * on, rather than only the one today happens to produce.
+ */
+export function shapeWeekday(weekday: number, spike: number): number {
+  return spike > 1 ? 1 + (weekday - 1) * 0.35 : weekday
+}
 
 // Relative to the launch day. The tail is what makes it read as an event rather
 // than a data error.
@@ -1155,9 +1174,10 @@ async function insertHistory(
       // chart has to say, and day-to-day jitter on top of an 8x multiplier is
       // what turns a deliberate 8x into an accidental 5x or 13x.
       const jitter = spike > 1 ? 1 : 0.72 + rand() * 0.62
-      const total = Math.round(
-        base * WEEKDAY_FACTOR[new Date(dayStart).getUTCDay()] * trend * spike * jitter
-      )
+
+      const shaped = shapeWeekday(WEEKDAY_FACTOR[new Date(dayStart).getUTCDay()], spike)
+
+      const total = Math.round(base * shaped * trend * spike * jitter)
       if (total <= 0) continue
 
       // Fewer visitors than clicks, because people open the same link twice.

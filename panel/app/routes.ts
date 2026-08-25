@@ -16,5 +16,6 @@ export default [
   route('reports', 'routes/reports.tsx'),
   route('reports/export', 'routes/reports.export.ts'),
   route('trash', 'routes/trash.tsx'),
+  route('usage', 'routes/usage.tsx'),
   route('join', 'routes/join.tsx'),
 ] satisfies RouteConfig

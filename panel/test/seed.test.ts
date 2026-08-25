@@ -1,7 +1,7 @@
 import test, { after } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Pool } from 'pg'
-import { seedDemo, DEMO_PASSWORD } from '../seed/demo.ts'
+import { seedDemo, DEMO_PASSWORD, WEEKDAY_FACTOR, shapeWeekday } from '../seed/demo.ts'
 import { verifyPassword } from '../app/lib/password.server.ts'
 
 // The db workspace is plain ESM with no type declarations and the panel's
@@ -268,6 +268,39 @@ test('the published password opens every demo account, and is never stored', asy
     // not open the account is the first thing a visitor sees fail.
     assert.equal(await verifyPassword(user.password_hash, DEMO_PASSWORD), true, user.email)
     assert.equal(await verifyPassword(user.password_hash, 'not-the-demo-password'), false)
+  }
+})
+
+test('the launch reads as a spike whichever weekday it lands on', () => {
+  // The test below measures the one peak today's date happens to produce. This
+  // one measures every peak the seed can produce, because the defect it guards
+  // against was invisible on most days: with the weekly rhythm left undamped, a
+  // Monday peak against a Tuesday tail came to exactly 1.5 — level bars, a
+  // chart that reads as a step change — while a Friday peak came to 3.0 and
+  // looked perfect. Nothing in the data explained the difference; the calendar
+  // did.
+  const PEAK = 8
+  const TAIL = 5
+
+  // The seed forces the peak onto a weekday, so Sunday and Saturday are not
+  // candidates — but their factors still matter, as the day after a Friday peak.
+  for (let day = 1; day <= 5; day += 1) {
+    const next = (day + 1) % 7
+    const peak = PEAK * shapeWeekday(WEEKDAY_FACTOR[day], PEAK)
+    const tail = TAIL * shapeWeekday(WEEKDAY_FACTOR[next], TAIL)
+
+    assert.ok(
+      peak > tail * 1.5,
+      `a peak on weekday ${day} must stand above its tail: ${peak.toFixed(2)} vs ${tail.toFixed(2)}`
+    )
+  }
+})
+
+test('a quiet day keeps its full weekly rhythm', () => {
+  // The damping applies to launch days only. Flattening every day would erase
+  // the weekday/weekend contrast the chart is also meant to show.
+  for (let day = 0; day <= 6; day += 1) {
+    assert.equal(shapeWeekday(WEEKDAY_FACTOR[day], 1), WEEKDAY_FACTOR[day])
   }
 })
 
