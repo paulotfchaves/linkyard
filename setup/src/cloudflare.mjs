@@ -15,13 +15,19 @@ async function request(token, path, init, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? fetch
   const base = deps.cloudflareApi ?? CLOUDFLARE_API
 
+  // The only reveal in this module, and it happens OUTSIDE the try below.
+  // Inside it, a caller passing a bare string instead of a Secret throws a
+  // TypeError that the catch would swallow and report as "Cloudflare did not
+  // answer" — sending whoever reads that message to check a network that is
+  // perfectly fine. Only the fetch itself may mean unreachable.
+  const authorization = `Bearer ${token.reveal()}`
+
   let response
   try {
     response = await fetchImpl(`${base}${path}`, {
       ...init,
       headers: {
-        // The only reveal in this module.
-        authorization: `Bearer ${token.reveal()}`,
+        authorization,
         'content-type': 'application/json',
         ...(init?.headers ?? {}),
       },
@@ -120,6 +126,22 @@ export function assertCreatableHost(apex, host) {
     throw new ProvisionError(FAILURE.DNS_NAME_FORBIDDEN, { host: normalized })
   }
   if (!normalized.endsWith(`.${zone}`)) throw new ProvisionError(FAILURE.DNS_NAME_FORBIDDEN, { host: normalized })
+
+  // Checking only the suffix let anything through on the left of it: a host
+  // with a space in it, or an empty label from a doubled dot, both ended in
+  // `.paulochaves.dev` and both were accepted, then handed to Cloudflare to
+  // refuse — turning a typo into an API error instead of a field message.
+  const prefix = normalized.slice(0, -(zone.length + 1))
+  const labels = prefix.split('.')
+  // A leading underscore is allowed because this installer creates
+  // `_railway-verify.<host>` itself, and the same shape covers `_acme-challenge`
+  // and friends. Hostname rules would forbid it; DNS verification records rely
+  // on it, and a stricter pattern here breaks the product's own flow.
+  const LABEL = /^_?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+  if (labels.length === 0 || !labels.every((label) => LABEL.test(label))) {
+    throw new ProvisionError(FAILURE.DNS_NAME_FORBIDDEN, { host: normalized })
+  }
+
   return normalized
 }
 
@@ -141,13 +163,24 @@ export async function findRecords(token, zoneId, name, deps = {}) {
  * Cloudflare, so Railway never sees the ACME challenge and the certificate never
  * issues — the domain sits pending until somebody thinks to look at a toggle.
  */
+// 81053/81057/81058 are Cloudflare's "this name is taken" family. Anything else
+// is a different problem and must not wear this label.
+const DUPLICATE_CODES = new Set([81053, 81057, 81058])
+
+function isDuplicateError(errors) {
+  return (errors ?? []).some(
+    (error) =>
+      DUPLICATE_CODES.has(Number(error?.code)) || /already exists/i.test(String(error?.message ?? ''))
+  )
+}
+
 export async function createRecord(token, zoneId, record, deps = {}) {
   const existing = await findRecords(token, zoneId, record.name, deps)
   if (existing.length > 0) {
     throw new ProvisionError(FAILURE.DNS_RECORD_EXISTS, { name: record.name, type: existing[0].type })
   }
 
-  const { ok, status, result } = await request(
+  const { ok, status, result, errors } = await request(
     token,
     `/zones/${zoneId}/dns_records`,
     {
@@ -164,9 +197,13 @@ export async function createRecord(token, zoneId, record, deps = {}) {
     deps
   )
 
-  // Cloudflare rejects a duplicate CNAME with its own code; treat any refusal on
-  // a name we just read as free as the same "somebody got there first" outcome.
-  if (!ok && status === 400) throw new ProvisionError(FAILURE.DNS_RECORD_EXISTS, { name: record.name, type: record.type })
+  // A duplicate is a specific Cloudflare error code, not any 400. Reading the
+  // status alone reported "that record already exists" for every malformed
+  // request — a bad content value, an unsupported type, a name Cloudflare
+  // rejects — and sent the operator hunting for a record that was never there.
+  if (!ok && isDuplicateError(errors)) {
+    throw new ProvisionError(FAILURE.DNS_RECORD_EXISTS, { name: record.name, type: record.type })
+  }
   if (!ok || !result?.id) throw apiFailure(status)
 
   return { id: result.id, type: record.type, name: record.name, value: record.value }

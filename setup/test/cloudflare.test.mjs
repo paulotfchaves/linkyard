@@ -144,3 +144,58 @@ test('rollback deletes by record id', async () => {
   assert.equal(calls[0].method, 'DELETE')
   assert.match(calls[0].url, /\/zones\/z1\/dns_records\/r9$/)
 })
+
+// Verified against the live Cloudflare API on 2026-08-14, which is how each of
+// these three got found: the module was exercised against the real service with
+// a real zone, and every one of them produced a wrong answer.
+
+test('a host is checked label by label, not just by its suffix', () => {
+  // All four end in `.example.com`, which was the only thing the check looked
+  // at. A space and an empty label sailed through to Cloudflare, so a typo came
+  // back as an API failure instead of a message about the field.
+  for (const host of ['a b.example.com', '..example.com', '-lead.example.com', 'trail-.example.com']) {
+    assert.throws(() => assertCreatableHost('example.com', host), /dns_name_forbidden/, host)
+  }
+
+  for (const host of ['go.example.com', 'a.b.example.com', 'x-1.example.com']) {
+    assert.equal(assertCreatableHost('example.com', host), host)
+  }
+})
+
+test('a duplicate is recognised by Cloudflare error code, not by status 400', async () => {
+  const { fetchImpl } = responder([
+    ok([]),
+    { status: 400, body: { success: false, errors: [{ code: 81053, message: 'An A, AAAA, or CNAME record with that host already exists.' }] } },
+  ])
+
+  await assert.rejects(
+    createRecord(new Secret(SENTINEL), 'zone', { type: 'CNAME', name: 'go.example.com', value: 'x.up.railway.app' }, { fetchImpl }),
+    (err) => err.code === FAILURE.DNS_RECORD_EXISTS
+  )
+})
+
+test('any other 400 keeps its own identity instead of posing as a duplicate', async () => {
+  // This is the one that cost real time: an empty content value produced a 400,
+  // the code called it "that record already exists", and the search was for a
+  // record that had never been created.
+  const { fetchImpl } = responder([
+    ok([]),
+    { status: 400, body: { success: false, errors: [{ code: 9005, message: 'Content for a CNAME record must be a valid hostname.' }] } },
+  ])
+
+  await assert.rejects(
+    createRecord(new Secret(SENTINEL), 'zone', { type: 'CNAME', name: 'go.example.com', value: '' }, { fetchImpl }),
+    (err) => err.code !== FAILURE.DNS_RECORD_EXISTS && err.code === FAILURE.CLOUDFLARE_API_FAILED
+  )
+})
+
+test('a caller passing a bare string is a programming error, not an unreachable Cloudflare', async () => {
+  // The reveal used to sit inside the try that catches network failures, so a
+  // missing Secret wrapper reported "Cloudflare did not answer" and pointed
+  // whoever read it at a network that was perfectly healthy.
+  const { fetchImpl } = responder([ok({ id: 'tok' })])
+  await assert.rejects(
+    verifyToken('a bare string, not a Secret', { fetchImpl }),
+    (err) => err instanceof TypeError || !/cloudflare_unreachable/.test(String(err?.code))
+  )
+})
