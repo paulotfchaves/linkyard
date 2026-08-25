@@ -18,7 +18,22 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # /var/lib/postgresql, NOT /var/lib/postgresql/data.
+      #
+      # Postgres 18 moved the data directory into a major-version subdirectory
+      # so that pg_upgrade can work across a single mount. The image detects the
+      # old mount point, decides it is looking at an un-upgraded cluster, and
+      # refuses to start — which means the 15-era path does not degrade, it
+      # breaks every fresh install outright:
+      #
+      #   Error: in 18+, these Docker images are configured to store database
+      #   data in a format which is compatible with "pg_ctlcluster" ...
+      #   there appears to be PostgreSQL data in:
+      #     /var/lib/postgresql/data (unused mount/volume)
+      #
+      # Found by running this file on a real VPS. No test caught it, because the
+      # test suite talks to a Postgres it did not start.
+      - postgres-data:/var/lib/postgresql
     # No published port. A redirect box is a public target by definition, and
     # 5432 reachable from the internet is how one becomes somebody else's.
     # `docker compose exec postgres psql` covers every legitimate need.

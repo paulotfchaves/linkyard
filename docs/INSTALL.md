@@ -74,8 +74,21 @@ Create your account. The setup page stops existing the moment it succeeds.
 
 ### What you need
 
-- A Linux machine with a public IPv4 address. 1 vCPU and 1 GB of RAM is enough.
+- A Linux machine with a public IPv4 address. 1 vCPU is enough.
+- **Memory: 1 GB to run, but the first build needs more than it needs to run.** `docker compose up --build` compiles Caddy from Go source *and* builds the panel. On a 512 MB droplet with no swap that build is killed by the kernel, and the message you get says nothing about memory:
+
+  ```
+  failed to execute bake: signal: killed
+  ```
+
+  If your machine has under 1 GB, add swap before building — it costs a minute and the build then completes:
+
+  ```bash
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  ```
 - Docker with the Compose plugin. On a fresh Debian or Ubuntu: `curl -fsSL https://get.docker.com | sh`.
+- Node 22+ **only if you want the `npx linkyard install` helper below**. A fresh Ubuntu has no Node; the by-hand path in step 2 needs nothing but `openssl`, which is already there.
 - A domain whose DNS is at Cloudflare.
 - A Cloudflare API token with **Zone → Zone → Read** and **Zone → DNS → Edit** on that zone. Create it at *My Profile → API Tokens → Create Token → Edit zone DNS*, and scope it to the one zone.
 
@@ -98,27 +111,7 @@ cd linkyard
 cp .env.example .env
 ```
 
-You can write `.env` with one command, or by hand.
-
-**With the command:**
-
-```bash
-npx linkyard install
-```
-
-It asks for the panel host, the redirect domain and an email for the certificate, generates each secret separately, and writes `.env` readable only by you. It talks to no network — the file never leaves the machine. Non-interactively:
-
-```bash
-npx linkyard install \
-  --panel-host panel.example.com \
-  --redirect-apex example.com \
-  --email you@example.com \
-  --yes
-```
-
-It refuses to overwrite an existing `.env` unless you pass `--force`, because replacing `ENCRYPTION_KEY` makes every credential already stored unreadable.
-
-**By hand:** copy `.env.example` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
+Copy `.env.example` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
 
 ```bash
 openssl rand -hex 32
@@ -130,6 +123,8 @@ Then set `LINKYARD_PANEL_HOST` to the panel hostname you created above, `LINKYAR
 
 Leave `DATABASE_URL` alone. `docker-compose.yml` assembles it from `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, so the password exists in one place and cannot drift. Set it only if you are pointing Linkyard at a database Compose does not manage — and in that case, do not add `?sslmode=require` unless that server really speaks TLS. A local or private-network Postgres serves plain TCP and refuses the handshake, and the crash looks like an outage.
 
+> **A helper exists, but is not published yet.** The repository ships `cli/`, which writes this file for you — it generates each secret separately, sets the file to owner-only, refuses to overwrite an existing `.env` (that would orphan every credential already encrypted), and talks to no network. Until it is published to npm, `npx linkyard install` will not resolve; run it from a clone with `node cli/src/index.mjs install`, on a machine that has Node.
+
 ### 3. Start
 
 ```bash
@@ -139,7 +134,15 @@ docker compose logs -f caddy
 
 The first start builds Caddy from source. That is deliberate and takes a couple of minutes: Caddy cannot solve a DNS challenge on its own, so the image is rebuilt with the `caddy-dns/cloudflare` module. Stock `caddy:2-alpine` would start and then fail every certificate with *unrecognized DNS provider: cloudflare*.
 
-Watch for a line saying the certificate was obtained. If it complains about the API token, the token is missing a permission or is scoped to the wrong zone.
+Watch for a line saying the certificate was obtained. If it complains about the API token, the token is missing a permission or is scoped to the wrong zone. An empty one says so plainly:
+
+```
+API token '' appears invalid; ensure it's correctly entered and not wrapped in braces nor quotes
+```
+
+The other three containers do not wait for Caddy, so the panel and the edge are already up and talking to the database while you sort the certificate out.
+
+You may see the edge log `relation "schedules" does not exist` two or three times in the first minute. That is the edge starting before the panel has finished applying migrations; it retries on its own tick and stops within a minute. It is not an error you need to act on.
 
 ### 4. First run
 
