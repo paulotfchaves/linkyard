@@ -14,7 +14,8 @@
     "core",
     "panel",
     "edge",
-    "setup"
+    "setup",
+    "cli"
   ],
   "scripts": {
     "test": "node --test --test-concurrency=1",

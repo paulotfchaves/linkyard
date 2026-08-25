@@ -98,7 +98,27 @@ cd linkyard
 cp .env.example .env
 ```
 
-Open `.env` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
+You can write `.env` with one command, or by hand.
+
+**With the command:**
+
+```bash
+npx linkyard install
+```
+
+It asks for the panel host, the redirect domain and an email for the certificate, generates each secret separately, and writes `.env` readable only by you. It talks to no network — the file never leaves the machine. Non-interactively:
+
+```bash
+npx linkyard install \
+  --panel-host panel.example.com \
+  --redirect-apex example.com \
+  --email you@example.com \
+  --yes
+```
+
+It refuses to overwrite an existing `.env` unless you pass `--force`, because replacing `ENCRYPTION_KEY` makes every credential already stored unreadable.
+
+**By hand:** copy `.env.example` and fill it in. Every variable has a comment above it saying what breaks without it. Generate each of the four secrets — `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`, `IP_HASH_SALT`, `SETUP_TOKEN` — with its own run of:
 
 ```bash
 openssl rand -hex 32
