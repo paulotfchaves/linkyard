@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Linkyard">
+  <title>Linkyard</title>
+  <!--
+    The mark the product already had, given the thing the product actually does.
+
+    The diamond was in the favicon and in the panel wordmark before this file
+    existed, so it stays: a square on its point, in ember. What is new is what
+    meets it. One line arrives from the left — the short link, the part that
+    never changes. Three leave to the right, and only one of them is solid.
+
+    That is the whole product in one figure. The destination is a setting, not
+    an address: swapping it moves the solid line to another branch while the
+    link the world already has stays exactly where it was. A switching yard is
+    where that happens to a train, which is where the name comes from.
+
+    The diamond sits left of centre on purpose. Three diverging lines carry more
+    visual weight than one straight one, so a mark centred on its geometry reads
+    as leaning right; this is centred on its mass instead.
+
+    Drawn, not generated. Five image-model attempts produced a navy crossroads,
+    an orange gradient the design system forbids, a document, the universal
+    refresh glyph, and a faceted gem. A logo is geometry under specification,
+    which is a drawing job.
+  -->
+  <g fill="none" stroke="#f0460e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- The link. One line, unchanging, entering the yard. -->
+    <path d="M3 16h5" />
+
+    <!-- Two destinations that could be in force, drawn faint. All three leave
+         from the same vertex so the fan reads as a branch point rather than as
+         one diagonal crossing behind the others — which is what a shared
+         horizontal run made it look like. -->
+    <path d="M18.5 16L27 9" opacity="0.3" />
+    <path d="M18.5 16L27 23" opacity="0.3" />
+
+    <!-- The one that is, drawn solid. -->
+    <path d="M18.5 16H28" />
+  </g>
+
+  <!-- The switch: the only filled shape, because this is where the choice lives. -->
+  <path d="M13 11l5 5-5 5-5-5z" fill="#f0460e" />
+</svg>

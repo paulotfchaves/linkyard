@@ -1,3 +1,5 @@
+<img src="docs/mark.svg" alt="" width="132" height="132" align="right">
+
 # Linkyard
 
 Self-hosted redirect and short-link manager. Point your own domains at it, create

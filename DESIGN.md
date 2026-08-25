@@ -247,3 +247,30 @@ unlocks transitions. Everything collapses under `prefers-reduced-motion`.
 - **The arrow signature** survives: action buttons carry an arrow glyph that translates 0.1875rem
   up-right on hover over 0.25s. It is the one flourish allowed everywhere, because it is the
   family resemblance.
+
+## The mark
+
+Two forms, because one shape cannot do both jobs.
+
+**The logo** (`panel/public/mark.svg`, mirrored at `docs/mark.svg`) is horizontal.
+One line arrives from the left — the short link, the part that never changes. It
+meets a filled diamond, the only solid shape in the drawing, because that is
+where the choice lives. Three lines leave it and only one is solid: the
+destination is a setting, not an address, and swapping it moves the solid line
+to another branch while the link the world already has stays where it was. A
+switching yard is where that happens to a train, which is where the name comes
+from.
+
+The diamond sits left of centre. Three diverging lines carry more visual weight
+than one straight one, so a mark centred on its geometry reads as leaning right;
+this is centred on its mass.
+
+**The icon** is the diamond alone, filled, on a dark rounded square — the favicon
+the edge has always served. The logo is deliberately not reused here: rendered
+at 32px it collapses into a smear, which is what a horizontal mark with three
+1px-scale branches does at favicon size. Tested rather than assumed.
+
+Both are drawn by hand. Five image-model attempts produced a navy crossroads, an
+orange gradient this document forbids, something resembling a document, the
+universal refresh glyph, and a faceted gem. Generative models make plausible
+illustration; a logo is geometry under specification, which is a drawing job.
