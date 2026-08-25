@@ -20,7 +20,7 @@
     "installer"
   ],
   "bin": {
-    "linkyard": "./src/index.mjs"
+    "linkyard": "src/index.mjs"
   },
   "files": [
     "src",
