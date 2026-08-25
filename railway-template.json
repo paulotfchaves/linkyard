@@ -2,27 +2,29 @@
   "$comment": [
     "Linkyard's three-service topology on Railway, declared once so the CLI installer, the hosted setup panel, and a human filling Railway's template composer all build the same thing.",
     "This is NOT a file Railway reads. Railway has exactly two code-based configuration formats, and neither is this one: railway.json / railway.toml configure a SINGLE service deployment (docs.railway.com/config-as-code), and .railway/railway.ts is TypeScript-only project Infrastructure as Code evaluated by the CLI (docs.railway.com/infrastructure-as-code). Templates themselves are authored in the composer UI or through the public GraphQL API, and the serialized shape that API accepts is not published (docs.railway.com/templates/create).",
-    "So: field NAMES below are Linkyard's own. The VALUES — the ${{...}} expressions — are the ones Railway actually evaluates, and those are documented. See $notes."
+    "So: field NAMES below are Linkyard's own. The VALUES \u2014 the ${{...}} expressions \u2014 are the ones Railway actually evaluates, and those are documented. See $notes."
   ],
-
   "name": "Linkyard",
   "description": "Self-hosted redirect and short-link manager with automatic domain provisioning.",
   "repository": "https://github.com/paulotfchaves/linkyard",
   "license": "MIT",
-
   "cost": {
-    "estimatedMonthlyUsd": [5.5, 7.0],
+    "estimatedMonthlyUsd": [
+      5.5,
+      7.0
+    ],
     "$comment": "Stated before the deploy, never after the invoice. Three services do not fit the US$ 5 Hobby plan; docs/INSTALL.md says so in the same words the setup panel does."
   },
-
   "services": [
     {
       "name": "postgres",
       "$comment": "The official image rather than a Railway database plugin, so the VPS target and this one run the same Postgres version.",
-      "source": { "image": "postgres:18-alpine" },
+      "source": {
+        "image": "postgres:18-alpine"
+      },
       "volume": {
         "mountPath": "/var/lib/postgresql/data",
-        "$comment": "A Railway volume is mounted non-empty (it carries lost+found), and initdb refuses to run into a non-empty directory. PGDATA therefore points at a subdirectory of the mount, which is why it is set below and not left at its default."
+        "$comment": "A Railway volume is mounted non-empty (it carries lost+found) and initdb refuses to run into a non-empty directory, so PGDATA points one level down. That subdirectory is also why this mount path is correct here while the identical path broke docker-compose.yml: Postgres 18 refuses to start when it finds a cluster at the legacy location, and with PGDATA one level down the mount itself holds no cluster. Compose had no PGDATA, so its mount had to move to /var/lib/postgresql instead. Same path, opposite verdict, decided by one variable."
       },
       "variables": {
         "POSTGRES_USER": "linkyard",
@@ -33,7 +35,6 @@
       "healthcheckPath": null,
       "$healthcheckComment": "Railway healthchecks are HTTP. Postgres is reached over the private network on 5432 and has none."
     },
-
     {
       "name": "edge",
       "$comment": "The only component in the click path. It never serves panel HTML, so the panel can be down while every link still resolves.",
@@ -44,18 +45,17 @@
       },
       "variables": {
         "DATABASE_URL": "postgresql://${{postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{postgres.POSTGRES_DB}}?user=${{postgres.POSTGRES_USER}}&password=${{postgres.POSTGRES_PASSWORD}}",
-        "$DATABASE_URL_comment": "Two deliberate choices. (1) No ?sslmode=require: Railway's private network speaks plain TCP between services and rejects an SSL handshake outright, so a service that reasons 'not localhost, therefore TLS' crashes at boot with an error that reads like a database outage. This exact assumption cost this project a deploy, and scripts/doctor.mjs tests for it first. (2) The credentials ride as query parameters rather than as user:password@host — libpq and node-postgres both accept the form, and it keeps a credential-shaped URL out of a public repository.",
+        "$DATABASE_URL_comment": "Two deliberate choices. (1) No ?sslmode=require: Railway's private network speaks plain TCP between services and rejects an SSL handshake outright, so a service that reasons 'not localhost, therefore TLS' crashes at boot with an error that reads like a database outage. This exact assumption cost this project a deploy, and scripts/doctor.mjs tests for it first. (2) The credentials ride as query parameters rather than as user:password@host \u2014 libpq and node-postgres both accept the form, and it keeps a credential-shaped URL out of a public repository.",
         "PORT": "3100",
         "$PORT_comment": "Set explicitly rather than left to injection: Railway uses this same value for the healthcheck, and a service listening somewhere else fails the check with 'service unavailable'.",
         "ENCRYPTION_KEY": "${{panel.ENCRYPTION_KEY}}",
         "IP_HASH_SALT": "${{panel.IP_HASH_SALT}}",
-        "$secret_sharing_comment": "Referenced from the panel, never generated again here. Two independent secret() calls would produce two different values, and then the edge could not open a credential the panel sealed, and the same visitor would hash to two different ip_hash values. VERIFY THIS AFTER DEPLOY — see $notes.unverified.",
+        "$secret_sharing_comment": "Referenced from the panel, never generated again here. Two independent secret() calls would produce two different values, and then the edge could not open a credential the panel sealed, and the same visitor would hash to two different ip_hash values. VERIFY THIS AFTER DEPLOY \u2014 see $notes.unverified.",
         "NODE_ENV": "production"
       },
       "healthcheckPath": "/healthz",
       "restartPolicyType": "ON_FAILURE"
     },
-
     {
       "name": "panel",
       "$comment": "Owns the secrets because it is the service that seals credentials; the edge borrows them by reference.",
@@ -70,7 +70,7 @@
         "ENCRYPTION_KEY": "${{secret(64, \"abcdef0123456789\")}}",
         "$ENCRYPTION_KEY_comment": "64 hex characters, the equivalent of `openssl rand -hex 32`. Generated at deploy time so no human ever picks it, and never rotated casually: change it and every stored credential becomes unreadable.",
         "SETUP_TOKEN": "${{secret(64, \"abcdef0123456789\")}}",
-        "$SETUP_TOKEN_comment": "Without it the first-run route answers 404 and no account can be created. It is generated rather than chosen because the panel's certificate reaches the public Certificate Transparency stream seconds after issuance, and scanners read that stream looking for open setup forms — the attacker's window opens before the owner's does.",
+        "$SETUP_TOKEN_comment": "Without it the first-run route answers 404 and no account can be created. It is generated rather than chosen because the panel's certificate reaches the public Certificate Transparency stream seconds after issuance, and scanners read that stream looking for open setup forms \u2014 the attacker's window opens before the owner's does.",
         "IP_HASH_SALT": "${{secret(64, \"abcdef0123456789\")}}",
         "$IP_HASH_SALT_comment": "The edge stores an HMAC of the client address and never the address itself. Without a salt there is nothing to HMAC with.",
         "PANEL_ORIGIN": "https://${{RAILWAY_PUBLIC_DOMAIN}}",
@@ -78,13 +78,15 @@
         "INFRA_PROVIDER": "railway",
         "NODE_ENV": "production"
       },
-      "publicNetworking": { "generateServiceDomain": true, "targetPort": 3000 },
+      "publicNetworking": {
+        "generateServiceDomain": true,
+        "targetPort": 3000
+      },
       "healthcheckPath": null,
-      "$healthcheckComment": "Deliberately absent, not forgotten. The panel serves no health route today — panel/app/routes.ts has none — and a healthcheck aimed at a 404 fails the deploy after the 300s timeout, so declaring one now would break the template for everyone. Set this to /healthz in the same change that adds the route.",
+      "$healthcheckComment": "Deliberately absent, not forgotten. The panel serves no health route today \u2014 panel/app/routes.ts has none \u2014 and a healthcheck aimed at a 404 fails the deploy after the 300s timeout, so declaring one now would break the template for everyone. Set this to /healthz in the same change that adds the route.",
       "restartPolicyType": "ON_FAILURE"
     }
   ],
-
   "$notes": {
     "sources": [
       "https://docs.railway.com/templates/create",
@@ -95,18 +97,18 @@
       "https://docs.railway.com/networking/private-networking"
     ],
     "verified": [
-      "secret(length, alphabet) is a real template variable function, executed at deploy time, and the documented way to produce a hex secret is secret(64, \"abcdef0123456789\") for the equivalent of `openssl rand -hex 32` — docs.railway.com/templates/create#template-variable-functions.",
-      "Reference syntax is ${{NAMESPACE.VAR}}, where the namespace for a cross-service reference is the other service's NAME — docs.railway.com/variables/reference#template-syntax.",
-      "RAILWAY_PRIVATE_DOMAIN and RAILWAY_PUBLIC_DOMAIN are Railway-provided variables on every service — docs.railway.com/variables/reference#railway-provided-variables.",
-      "Services reach each other privately at <service>.railway.internal with no port exposure, and that network is not public — docs.railway.com/networking/private-networking.",
-      "A healthcheck is an HTTP GET expecting 200, is checked only at deploy time, uses the PORT variable, and times out at 300s by default — docs.railway.com/deployments/healthchecks.",
-      "healthcheckPath, restartPolicyType (ON_FAILURE | ALWAYS | NEVER) and dockerfilePath are real deployment settings with these exact names — docs.railway.com/config-as-code/reference.",
-      "A template service can be given a Root Directory, a start command, a healthcheck path and a volume mount path in the composer — docs.railway.com/templates/create#configuring-services."
+      "secret(length, alphabet) is a real template variable function, executed at deploy time, and the documented way to produce a hex secret is secret(64, \"abcdef0123456789\") for the equivalent of `openssl rand -hex 32` \u2014 docs.railway.com/templates/create#template-variable-functions.",
+      "Reference syntax is ${{NAMESPACE.VAR}}, where the namespace for a cross-service reference is the other service's NAME \u2014 docs.railway.com/variables/reference#template-syntax.",
+      "RAILWAY_PRIVATE_DOMAIN and RAILWAY_PUBLIC_DOMAIN are Railway-provided variables on every service \u2014 docs.railway.com/variables/reference#railway-provided-variables.",
+      "Services reach each other privately at <service>.railway.internal with no port exposure, and that network is not public \u2014 docs.railway.com/networking/private-networking.",
+      "A healthcheck is an HTTP GET expecting 200, is checked only at deploy time, uses the PORT variable, and times out at 300s by default \u2014 docs.railway.com/deployments/healthchecks.",
+      "healthcheckPath, restartPolicyType (ON_FAILURE | ALWAYS | NEVER) and dockerfilePath are real deployment settings with these exact names \u2014 docs.railway.com/config-as-code/reference.",
+      "A template service can be given a Root Directory, a start command, a healthcheck path and a volume mount path in the composer \u2014 docs.railway.com/templates/create#configuring-services."
     ],
     "unverified": [
-      "THE FILE FORMAT ITSELF. Railway publishes no repo-level template schema, so no key at the top level of this document — services, source, variables, publicNetworking, volume, cost — is a name Railway will recognise. They are Linkyard's, and the installer that reads this file must translate them into the composer or into the API call.",
-      "WHETHER ${{panel.ENCRYPTION_KEY}} RESOLVES TO THE GENERATED SECRET. The docs state that secret() runs at deploy time and that ${{service.VAR}} reads another service's variable, but not the order the two are resolved in. If references are resolved before generation, the edge receives the literal string '${{secret(64, \"abcdef0123456789\")}}' — 36 characters, long enough to pass the vault's 32-character minimum and therefore to fail SILENTLY, with the edge unable to open anything the panel sealed. AFTER DEPLOY, COMPARE ENCRYPTION_KEY AND IP_HASH_SALT ON BOTH SERVICES: they must be the same 64-character hex string, and neither may contain '${{'. If they differ, copy the panel's values onto the edge by hand.",
-      "publicNetworking.generateServiceDomain / targetPort — public networking is configured in the composer UI and the field names it serializes to are not documented.",
+      "THE FILE FORMAT ITSELF. Railway publishes no repo-level template schema, so no key at the top level of this document \u2014 services, source, variables, publicNetworking, volume, cost \u2014 is a name Railway will recognise. They are Linkyard's, and the installer that reads this file must translate them into the composer or into the API call.",
+      "WHETHER ${{panel.ENCRYPTION_KEY}} RESOLVES TO THE GENERATED SECRET. The docs state that secret() runs at deploy time and that ${{service.VAR}} reads another service's variable, but not the order the two are resolved in. If references are resolved before generation, the edge receives the literal string '${{secret(64, \"abcdef0123456789\")}}' \u2014 36 characters, long enough to pass the vault's 32-character minimum and therefore to fail SILENTLY, with the edge unable to open anything the panel sealed. AFTER DEPLOY, COMPARE ENCRYPTION_KEY AND IP_HASH_SALT ON BOTH SERVICES: they must be the same 64-character hex string, and neither may contain '${{'. If they differ, copy the panel's values onto the edge by hand.",
+      "publicNetworking.generateServiceDomain / targetPort \u2014 public networking is configured in the composer UI and the field names it serializes to are not documented.",
       "volume.mountPath as a template-level key. The mount path itself is documented (docs.railway.com/volumes); how a template serializes an attached volume is not.",
       "PGDATA pointing at a subdirectory of the mount. This is the standard fix for initdb refusing a non-empty volume and matches Railway's own Postgres template, but it was not tested against a live Railway volume in this session.",
       "postgres:18-alpine binding its listener on IPv6. Railway's private network is IPv6-capable and the official image listens on all addresses by default, but the MongoDB entry in docs.railway.com/networking/private-networking/library-configuration shows that some official images need an explicit bind. If the edge cannot reach postgres over the private domain, this is the first thing to check."

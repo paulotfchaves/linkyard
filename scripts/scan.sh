@@ -18,7 +18,13 @@ BRANDS='nextech|marcolang|leandroferrari|scalementoring|grupoxflow|bflancamentos
 
 # Secret shapes: Cloudflare tokens, JWTs, Postgres URLs carrying a password, and
 # generic key/secret/password/token assignments with a long value.
-SECRETS='cfut_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|postgres(ql)?://[^:/@ ]+:[^@ ]+@|(api[_-]?key|secret|password|token)[^A-Za-z0-9]{1,4}[A-Za-z0-9_-]{24,}'
+# The password must not begin with `$`, which excludes a `${{...}}` template
+# reference. A connection string whose credentials are placeholders carries no
+# secret, and the docs have to show the exact value an operator pastes into
+# Railway. Written without a lookahead on purpose: grep -E is POSIX ERE and has
+# none — the first attempt used one, and test-scan.sh caught it immediately by
+# reporting a real secret gone missed.
+SECRETS='cfut_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.|postgres(ql)?://[^:/@ ]+:[^$@ ][^@ ]*@|(api[_-]?key|secret|password|token)[^A-Za-z0-9]{1,4}[A-Za-z0-9_-]{24,}'
 
 # Brazilian personal data shapes: CPF, CNPJ, phone with country code.
 PII='[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}|[0-9]{2}\.[0-9]{3}\.[0-9]{3}/[0-9]{4}-[0-9]{2}|\+55[0-9]{10,11}'
