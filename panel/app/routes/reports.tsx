@@ -62,14 +62,17 @@ function Sparkline({ series, locale }: { series: Report['series']; locale: Local
   const max = Math.max(1, ...series.map((p) => p.clicks))
   const total = series.reduce((sum, p) => sum + p.clicks, 0)
 
-  // The viewBox matches the rendered box's proportion closely enough that the
-  // stroke stays even.
+  // The geometry stretches to the container; the stroke does not.
   //
-  // It used to be 100x30 stretched with preserveAspectRatio="none" into roughly
-  // 1326x96 — 13.3x across against 3.2x down. A 1.2 stroke came out near 4px on
-  // the flat runs and 16px on the drops, so the line changed thickness with its
-  // direction and the chart looked broken. vector-effect keeps that true at any
-  // container width.
+  // Stretching alone was the original defect: a 100x30 box pulled into roughly
+  // 1326x96 scaled 13.3x across against 3.2x down, so a 1.2 stroke rendered
+  // near 4px on the flat runs and 16px on the drops — the line changed
+  // thickness with its own direction. `vector-effect="non-scaling-stroke"`
+  // fixes exactly that, leaving the path free to span the full width.
+  //
+  // Letting the ratio be preserved instead centres the drawing and leaves
+  // gutters, which puts the line out of register with the date labels beneath
+  // it — a worse problem than the one being solved.
   const width = 720
   const height = 120
   const pad = 4
@@ -87,7 +90,7 @@ function Sparkline({ series, locale }: { series: Report['series']; locale: Local
     <svg
       className="spark"
       viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
       role="img"
       aria-label={t(locale, 'reports.chart.alt', { total, days: series.length })}
     >

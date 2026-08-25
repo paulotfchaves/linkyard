@@ -42,16 +42,34 @@ try {
   await pool.end()
 }
 
-// SEED_DEMO fills an empty database with the demonstration dataset. It only
-// ever runs when there is no user yet, so it cannot overwrite a real
-// installation that happens to have the flag set.
-if (process.env.SEED_DEMO === '1') {
+// SEED_DEMO fills a database with the demonstration dataset.
+//
+//   1        seed only when there is no user yet. Cannot overwrite a real
+//            installation that happens to have the flag set.
+//   refresh  wipe and re-seed on every start. For the public demo only.
+//
+// `refresh` exists because the dataset is anchored to the day it is generated.
+// Seeded once and left alone, the chart walks off the right-hand edge: the
+// public demo spent eleven days showing traffic that stopped dead, which reads
+// as a broken product rather than as stale sample data. It is deliberately a
+// separate value — anything that truncates a users table must be asked for by
+// name, never reached by a flag that also means "seed if empty".
+const seedMode = process.env.SEED_DEMO
+if (seedMode === '1' || seedMode === 'refresh') {
   const seedPool = new pg.Pool({ connectionString: url, max: 2, ssl: sslFor(url) })
   try {
     const { rows } = await seedPool.query('SELECT EXISTS (SELECT 1 FROM users) AS any')
-    if (rows[0].any) {
+    if (rows[0].any && seedMode !== 'refresh') {
       console.log('seed skipped: this installation already has users')
     } else {
+      if (rows[0].any) {
+        // Truncate rather than drop: the schema stays, migrations do not rerun,
+        // and every foreign key is cleared in one statement.
+        await seedPool.query(
+          'TRUNCATE users, domains, subdomains, tags, links, schedules, click_events, click_daily, grants, invites, sessions, audit_log, usage_samples RESTART IDENTITY CASCADE'
+        )
+        console.log('demo refresh: previous dataset cleared')
+      }
       const { seedDemo } = await import('./seed/demo.ts')
       const counts = await seedDemo(seedPool)
       console.log('demo seeded:', JSON.stringify(counts))
