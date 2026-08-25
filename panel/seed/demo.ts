@@ -919,6 +919,15 @@ export async function seedDemo(pool: Pool, opts: SeedOptions = {}): Promise<Seed
 
     const clicks = await insertHistory(client, linkIds, firstDay, days, spikeDay)
 
+    // One usage reading, so the server page demonstrates what it does instead
+    // of showing an empty state. Marked `local`, with no cost: the demo is a
+    // self-hosted-shaped installation as far as that screen is concerned, which
+    // is the version most visitors will run.
+    await client.query(
+      `INSERT INTO usage_samples (source, cpu_vcpu, memory_gb, disk_gb, estimated_cost, sampled_at)
+       VALUES ('local', 0.18, 0.164, 2.4, NULL, now() - interval '12 minutes')`
+    )
+
     await client.query('COMMIT')
 
     return {
