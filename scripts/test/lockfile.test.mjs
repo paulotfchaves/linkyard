@@ -47,3 +47,30 @@ test('the lockfile carries no workspace package.json no longer declares', async 
 
   assert.deepEqual(stale, [], `lockfile has workspaces package.json does not declare: ${stale.join(', ')}`)
 })
+
+test('each workspace node in the lockfile carries the name and version its package.json declares', async () => {
+  const { pkg, lock } = await readBoth()
+
+  // The path check above is not enough. Renaming a workspace — `@linkyard/cli`
+  // became `linkyard`, so that `npx linkyard install` resolves — keeps the path
+  // key `cli` in place and passes every check here, while `npm ci` still fails
+  // with `Missing: linkyard@0.1.0 from lock file`: it matches on identity, not
+  // on directory. Same for a version bump published from the workspace.
+  const drifted = []
+
+  for (const dir of pkg.workspaces ?? []) {
+    const manifest = JSON.parse(await readFile(new URL(`${dir}/package.json`, root), 'utf8'))
+    const node = (lock.packages ?? {})[dir]
+    if (!node) continue // reported by the test above
+
+    if (node.name !== manifest.name || node.version !== manifest.version) {
+      drifted.push(`${dir}: lock has ${node.name}@${node.version}, package.json says ${manifest.name}@${manifest.version}`)
+    }
+  }
+
+  assert.deepEqual(
+    drifted,
+    [],
+    `run \`npm install\` and commit package-lock.json — ${drifted.join('; ')}`
+  )
+})
