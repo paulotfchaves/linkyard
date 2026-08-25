@@ -459,7 +459,11 @@ export async function usageStatus(): Promise<UsageStatus> {
     )
   }
 
-  if (level !== 'ok') {
+  // Only when there is a bill heading somewhere. Written as `!== 'ok'` this
+  // fired on 'unknown' too, so a self-hosted install with no cost at all was
+  // told what its cycle closes at and sent to Railway's settings — advice about
+  // a product it is not running.
+  if (level === 'warning' || level === 'over') {
     const overshoot = projected - ceiling
     advice.push(
       `At US$ ${usd(perDay)}/day this cycle closes at US$ ${usd(projected)}, against an allowance of US$ ${usd(ceiling)}.` +
@@ -471,12 +475,17 @@ export async function usageStatus(): Promise<UsageStatus> {
     advice.push(
       `Cut click retention: run dropExpiredPartitions(pool, 90) from db/retention.mjs${size}. click_daily survives the purge, so every report keeps working.`
     )
-    advice.push(
-      'Sleep the panel: Railway → panel → Settings → Deploy → Serverless. The edge stays awake, so links keep resolving while nobody is on the dashboard.'
-    )
-    advice.push(
-      'Run one replica of each service: Railway → service → Settings → Deploy → Replicas = 1.'
-    )
+    // Both of these are Railway console instructions. On a VPS the equivalent
+    // levers are the machine's own, and naming a console the operator does not
+    // have is worse than saying nothing.
+    if (process.env.INFRA_PROVIDER === 'railway') {
+      advice.push(
+        'Sleep the panel: Railway → panel → Settings → Deploy → Serverless. The edge stays awake, so links keep resolving while nobody is on the dashboard.'
+      )
+      advice.push(
+        'Run one replica of each service: Railway → service → Settings → Deploy → Replicas = 1.'
+      )
+    }
     if (level === 'over') {
       advice.push(
         'Or raise the ceiling: Railway Pro costs US$ 20/month — upgrade, then set PLAN_CEILING_USD=20 so this monitor tracks the plan you are actually on.'

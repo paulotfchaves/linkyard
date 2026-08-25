@@ -294,6 +294,12 @@ describe('usageStatus', () => {
   })
 
   it('says what the invoice will be and what to do about it', async () => {
+    // A Railway installation: two of the levers below are instructions for
+    // Railway's console, and naming a console the operator does not have is
+    // worse than saying nothing, so they are gated on this.
+    const before = process.env.INFRA_PROVIDER
+    process.env.INFRA_PROVIDER = 'railway'
+    try {
     // Projects to US$ 6.00 against a US$ 5.00 allowance.
     await seedCost(2, 10, 20)
     const status = await usageStatus()
@@ -311,6 +317,25 @@ describe('usageStatus', () => {
       !/consider|might want|optimi[sz]/i.test(advice),
       `advice that suggests instead of instructing:\n${advice}`
     )
+    } finally {
+      if (before === undefined) delete process.env.INFRA_PROVIDER
+      else process.env.INFRA_PROVIDER = before
+    }
+  })
+
+  it('a self-hosted install over its ceiling is not sent to a Railway console', async () => {
+    // The disk lever applies anywhere; the console instructions do not.
+    const before = process.env.INFRA_PROVIDER
+    process.env.INFRA_PROVIDER = 'compose'
+    try {
+      await seedCost(2, 10, 20)
+      const advice = (await usageStatus()).advice.join('\n')
+      assert.ok(/retention/i.test(advice), `the disk lever applies anywhere:\n${advice}`)
+      assert.ok(!/serverless|Replicas/i.test(advice), `Railway console advice leaked:\n${advice}`)
+    } finally {
+      if (before === undefined) delete process.env.INFRA_PROVIDER
+      else process.env.INFRA_PROVIDER = before
+    }
   })
 
   it('counts the days left in the cycle it is projecting', async () => {
