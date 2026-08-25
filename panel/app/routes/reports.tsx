@@ -58,23 +58,66 @@ type Data = {
   days: number
 }
 
-function Sparkline({ series }: { series: Report['series'] }) {
+function Sparkline({ series, locale }: { series: Report['series']; locale: Locale }) {
   const max = Math.max(1, ...series.map((p) => p.clicks))
-  const width = 100
-  const step = series.length > 1 ? width / (series.length - 1) : width
-  const points = series
-    .map((p, i) => `${(i * step).toFixed(2)},${(30 - (p.clicks / max) * 28).toFixed(2)}`)
-    .join(' ')
+  const total = series.reduce((sum, p) => sum + p.clicks, 0)
+
+  // The viewBox matches the rendered box's proportion closely enough that the
+  // stroke stays even.
+  //
+  // It used to be 100x30 stretched with preserveAspectRatio="none" into roughly
+  // 1326x96 — 13.3x across against 3.2x down. A 1.2 stroke came out near 4px on
+  // the flat runs and 16px on the drops, so the line changed thickness with its
+  // direction and the chart looked broken. vector-effect keeps that true at any
+  // container width.
+  const width = 720
+  const height = 120
+  const pad = 4
+  const step = series.length > 1 ? (width - pad * 2) / (series.length - 1) : 0
+
+  const y = (clicks: number) => height - pad - (clicks / max) * (height - pad * 2)
+  const points = series.map((p, i) => `${(pad + i * step).toFixed(1)},${y(p.clicks).toFixed(1)}`)
+
+  // A single day cannot be a line. Drawing one anyway produced a polyline with
+  // one point, which renders nothing at all — an empty chart that looks like a
+  // bug rather than like one day of data.
+  const single = series.length === 1
 
   return (
     <svg
       className="spark"
-      viewBox={`0 0 ${width} 30`}
-      preserveAspectRatio="none"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-hidden="true"
+      aria-label={t(locale, 'reports.chart.alt', { total, days: series.length })}
     >
-      <polyline points={points} fill="none" stroke="var(--primary)" strokeWidth="1.2" />
+      <title>{t(locale, 'reports.chart.alt', { total, days: series.length })}</title>
+
+      {/* The zero line, so a flat stretch reads as no traffic rather than as a
+          chart that failed to draw. */}
+      <line
+        x1={pad}
+        y1={height - pad}
+        x2={width - pad}
+        y2={height - pad}
+        stroke="var(--hairline)"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+
+      {single ? (
+        <circle cx={pad} cy={y(series[0].clicks)} r="3" fill="var(--primary)" />
+      ) : (
+        <polyline
+          points={points.join(' ')}
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
     </svg>
   )
 }
@@ -184,7 +227,7 @@ export default function Reports() {
           </section>
 
           <section className="card chart">
-            <Sparkline series={report.series} />
+            <Sparkline locale={locale} series={report.series} />
             <div className="chart__axis t-faint">
               <span>{report.range.from}</span>
               {report.peak && (

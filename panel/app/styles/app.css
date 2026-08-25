@@ -1174,10 +1174,15 @@ textarea {
   margin-bottom: 1rem;
 }
 
+/* The viewBox is 720x120 and the box is free to be any width; `meet` keeps the
+   ratio, and the stroke is non-scaling, so the line holds one thickness whatever
+   the container does. The previous rule stretched a 100x30 box to fill this one
+   and the line changed weight with its own direction. */
 .spark {
   width: 100%;
-  height: 6rem;
+  height: 7.5rem;
   display: block;
+  overflow: visible;
 }
 
 .chart__axis {
@@ -1596,12 +1601,17 @@ textarea {
   overflow: hidden;
 }
 
+/* scaleX, not width: animating width relayouts the row on every frame. The
+   element is full-width and squeezed from the left, so the transform does the
+   same job on the compositor. */
 .usage__bar-fill {
   display: block;
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--muted);
-  transition: width var(--t-state) var(--ease);
+  transform-origin: left center;
+  transition: transform var(--t-state) var(--ease);
 }
 
 .usage[data-level='warning'] .usage__bar-fill,
@@ -1648,4 +1658,76 @@ textarea {
 
 .usage__advice-list li {
   list-style: disc;
+}
+
+
+/* ── Server readings ───────────────────────────────────────────────────────
+   Three measurements, no bars. A resource reading has no ceiling to fill
+   against: CPU on a VPS answers to no quota, and a disk figure without the
+   volume size is a number, not a proportion. A track behind either would draw
+   a denominator the sample never carried. */
+.usage__server {
+  margin-top: 1rem;
+  padding: var(--card-pad);
+}
+
+.usage__server-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1.125rem;
+}
+
+.usage__stamp {
+  font-size: var(--fs-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--faint);
+}
+
+.usage__readings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1.5rem 2rem;
+  margin: 0;
+}
+
+.reading__label {
+  font-size: var(--fs-small);
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.reading__value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3125rem;
+  margin: 0;
+  font-size: var(--fs-headline);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.reading__unit {
+  font-size: var(--fs-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--faint);
+}
+
+.reading__hint {
+  margin-top: 0.375rem;
+  font-size: var(--fs-small);
+  line-height: 1.45;
+  color: var(--faint);
+  max-width: 34ch;
 }

@@ -42,7 +42,7 @@ export type CostSample = Pick<
   'sampledAt' | 'estimatedCost' | 'periodStart' | 'periodEnd'
 >
 
-export type UsageLevel = 'ok' | 'warning' | 'over'
+export type UsageLevel = 'ok' | 'warning' | 'over' | 'unknown'
 
 export type UsageStatus = {
   level: UsageLevel
@@ -50,6 +50,20 @@ export type UsageStatus = {
   planCeiling: number
   daysLeft: number
   advice: string[]
+
+  // Where the numbers came from, and the numbers themselves.
+  //
+  // Without these the screen could only ever talk about money, which is a
+  // Railway concept. A Compose install on somebody's own VPS has no bill to
+  // read, so it was shown "$0.00 of $5.00", told it was comfortably inside a
+  // plan it is not on, and advised to set two Railway variables that mean
+  // nothing there — while the CPU, memory and disk this module had already
+  // measured were collected every hour and displayed nowhere.
+  source: UsageSource | null
+  sampledAt: string | null
+  cpuVcpu: number | null
+  memoryGb: number | null
+  diskGb: number | null
 }
 
 const DAY_MS = 86_400_000
@@ -402,12 +416,22 @@ export async function usageStatus(): Promise<UsageStatus> {
   )
 
   const daysLeft = Math.max(0, Math.ceil((period.end.getTime() - now.getTime()) / DAY_MS))
-  const level: UsageLevel =
-    projected > ceiling ? 'over' : projected > ceiling * WARNING_FRACTION ? 'warning' : 'ok'
+  // A level is a judgement about a bill, so it needs one. Without a priced
+  // sample the honest answer is that there is nothing to judge — 'ok' would
+  // read as "comfortably inside the plan", which is a reassurance nobody
+  // measured.
+  const priceable = samples.some((s) => s.estimatedCost !== null)
+  const level: UsageLevel = !priceable
+    ? 'unknown'
+    : projected > ceiling
+      ? 'over'
+      : projected > ceiling * WARNING_FRACTION
+        ? 'warning'
+        : 'ok'
 
   const advice: string[] = []
   const latest = samples.at(-1)
-  const priced = samples.some((s) => s.estimatedCost !== null)
+  const priced = priceable
   const configured = railwayCredentials() !== null
 
   if (!latest) {
@@ -419,9 +443,14 @@ export async function usageStatus(): Promise<UsageStatus> {
       'The last sample fell back to a local estimate: the Railway API did not answer. Check RAILWAY_API_TOKEN and RAILWAY_PROJECT_ID — until it answers, the cost projection is blind.'
     )
   } else if (!priced && !configured) {
-    advice.push(
-      'No cost figure yet: set RAILWAY_API_TOKEN and RAILWAY_PROJECT_ID to read the real bill. On a flat-rate host there is nothing to project.'
-    )
+    // Only worth saying on Railway. A Compose install on somebody's own server
+    // has no bill to read, and telling its operator to set two Railway
+    // variables is advice about a product they did not install.
+    if (process.env.INFRA_PROVIDER === 'railway') {
+      advice.push(
+        'No cost figure yet: set RAILWAY_API_TOKEN and RAILWAY_PROJECT_ID to read the real bill.'
+      )
+    }
   }
 
   if (priced && perDay === 0) {
@@ -455,5 +484,16 @@ export async function usageStatus(): Promise<UsageStatus> {
     }
   }
 
-  return { level, projected, planCeiling: ceiling, daysLeft, advice }
+  return {
+    level,
+    projected,
+    planCeiling: ceiling,
+    daysLeft,
+    advice,
+    source: latest?.source ?? null,
+    sampledAt: latest ? new Date(latest.sampledAt).toISOString() : null,
+    cpuVcpu: latest?.cpuVcpu ?? null,
+    memoryGb: latest?.memoryGb ?? null,
+    diskGb: latest?.diskGb ?? null,
+  }
 }

@@ -61,6 +61,15 @@ function sample(input: Partial<CostSample> & { estimatedCost: number | null }): 
   }
 }
 
+/** One row as the hourly sampler would write it on a machine with no bill. */
+async function seedLocal(reading: { cpuVcpu: number; memoryGb: number; diskGb: number }): Promise<void> {
+  await db.pool.query(
+    `INSERT INTO usage_samples (source, cpu_vcpu, memory_gb, disk_gb, estimated_cost)
+     VALUES ('local', $1, $2, $3, NULL)`,
+    [reading.cpuVcpu, reading.memoryGb, reading.diskGb]
+  )
+}
+
 /** A period open around `now`, so the projection has a partial cycle to work with. */
 async function seedCost(cost: number, elapsedDays: number, remainingDays: number): Promise<void> {
   const now = Date.now()
@@ -207,7 +216,13 @@ describe('projectCost', () => {
 describe('usageStatus', () => {
   it('does not crash on an installation that has never sampled', async () => {
     const status = await usageStatus()
-    assert.equal(status.level, 'ok')
+
+    // 'unknown', not 'ok'. A level is a judgement about a bill, and with no
+    // priced sample there is nothing to judge — 'ok' rendered as "comfortably
+    // inside the plan", which is a reassurance nobody had measured, shown on
+    // every self-hosted install that has no bill at all.
+    assert.equal(status.level, 'unknown')
+    assert.equal(status.source, null, 'no sample means no source')
     assert.equal(status.projected, 0)
     assert.equal(status.planCeiling, 5)
     assert.ok(status.advice.length > 0, 'silence would read as "everything is fine"')
@@ -215,6 +230,43 @@ describe('usageStatus', () => {
       status.advice.some((line) => /sampleUsage/.test(line)),
       `no advice names the missing sampler:\n${status.advice.join('\n')}`
     )
+  })
+
+  it('carries the reading it measured, not only the money it could not compute', async () => {
+    // The screen could previously only talk about cost, which is a Railway
+    // concept. A Compose install has no bill, so it was shown "$0.00 of $5.00"
+    // while the CPU, memory and disk this module samples every hour went
+    // nowhere. Exposing them is what lets the page say something true.
+    await seedLocal({ cpuVcpu: 0.42, memoryGb: 0.19, diskGb: 3.5 })
+
+    const status = await usageStatus()
+
+    assert.equal(status.source, 'local')
+    assert.equal(status.cpuVcpu, 0.42)
+    assert.equal(status.memoryGb, 0.19)
+    assert.equal(status.diskGb, 3.5)
+    assert.ok(status.sampledAt, 'a reading without a timestamp cannot be called stale')
+
+    // And still no verdict about a plan it is not on.
+    assert.equal(status.level, 'unknown')
+  })
+
+  it('does not tell a self-hosted operator to set Railway variables', async () => {
+    // Advice about a product they did not install. INFRA_PROVIDER says which
+    // world this installation lives in.
+    const before = process.env.INFRA_PROVIDER
+    process.env.INFRA_PROVIDER = 'compose'
+    try {
+      await seedLocal({ cpuVcpu: 0.1, memoryGb: 0.1, diskGb: 1 })
+      const status = await usageStatus()
+      assert.ok(
+        !status.advice.some((line) => /RAILWAY_API_TOKEN/.test(line)),
+        `advice mentions Railway on a Compose install:\n${status.advice.join('\n')}`
+      )
+    } finally {
+      if (before === undefined) delete process.env.INFRA_PROVIDER
+      else process.env.INFRA_PROVIDER = before
+    }
   })
 
   it('reads the plan ceiling from the environment', async () => {

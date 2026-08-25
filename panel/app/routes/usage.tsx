@@ -35,23 +35,76 @@ const money = (locale: Locale, value: number) =>
     maximumFractionDigits: 2,
   }).format(value)
 
+const decimal = (locale: Locale, value: number, digits = 2) =>
+  new Intl.NumberFormat(locale === 'pt-BR' ? 'pt-BR' : 'en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)
+
+/** Relative time, in words, so "measured at 14:03 UTC" is not the reader's problem. */
+function ago(locale: Locale, iso: string): string {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+  if (minutes < 2) return t(locale, 'usage.ago.now')
+  if (minutes < 60) return t(locale, 'usage.ago.minutes', { n: minutes })
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return t(locale, 'usage.ago.hours', { n: hours })
+  return t(locale, 'usage.ago.days', { n: Math.round(hours / 24) })
+}
+
+/**
+ * One measurement, stated plainly.
+ *
+ * No bar behind it: a resource reading has no ceiling to fill against. CPU on a
+ * VPS is measured against no quota, and a disk figure without the volume size
+ * is a number rather than a proportion — a track behind either would invent a
+ * denominator the sample never carried.
+ */
+function Reading({
+  label,
+  value,
+  unit,
+  hint,
+}: {
+  label: string
+  value: string
+  unit: string
+  hint: string
+}) {
+  return (
+    <div className="reading">
+      <dt className="reading__label">{label}</dt>
+      <dd className="reading__value">
+        <span className="tabular">{value}</span>
+        <span className="reading__unit">{unit}</span>
+      </dd>
+      <p className="reading__hint">{hint}</p>
+    </div>
+  )
+}
+
 export default function Usage() {
   const data = useLoaderData<{ user: any; locale: Locale; status: UsageStatus | null }>()
   const { locale, status } = data
 
-  const level = status?.level ?? 'ok'
-  const headline =
-    level === 'over'
+  // What this installation can honestly say.
+  //
+  // A Compose install on somebody's own server has no bill, so the page leads
+  // with the machine it runs on. A Railway install leads with the projection,
+  // because that is the number that eventually arrives as an invoice. Before
+  // this, every install was shown the Railway version — "$0.00 of $5.00",
+  // comfortably inside a plan it was not on.
+  const billed = status?.source === 'railway' && status.level !== 'unknown'
+
+  const headline = billed
+    ? status!.level === 'over'
       ? t(locale, 'usage.level.over')
-      : level === 'warning'
+      : status!.level === 'warning'
         ? t(locale, 'usage.level.warning')
         : t(locale, 'usage.level.ok')
+    : t(locale, 'usage.selfhosted.headline')
 
-  // The share of the allowance, capped for the bar only. The number beside it
-  // is never capped: an installation at 240% of its plan needs to read 240%,
-  // not a bar that has been full for a week.
-  const share = status && status.planCeiling > 0 ? status.projected / status.planCeiling : 0
-  const barWidth = `${Math.min(100, Math.max(0, share * 100))}%`
+  const share =
+    status && billed && status.planCeiling > 0 ? status.projected / status.planCeiling : 0
 
   return (
     <Shell
@@ -64,36 +117,74 @@ export default function Usage() {
     >
       <PageHeader title={t(locale, 'usage.title')} />
 
-      {!status ? (
-        <div className="card" style={{ padding: 'var(--card-pad)' }}>
-          <p className="t-prose t-muted">{t(locale, 'usage.unavailable')}</p>
-        </div>
+      {!status || !status.sampledAt ? (
+        <section className="card usage">
+          <p className="usage__headline">{t(locale, 'usage.nosample.title')}</p>
+          <p className="t-prose t-muted">{t(locale, 'usage.nosample.body')}</p>
+        </section>
       ) : (
         <>
-          <section className="card usage" data-level={level}>
+          <section className="card usage" data-level={billed ? status.level : 'none'}>
             <p className="usage__headline">{headline}</p>
 
-            <p className="usage__figure">
-              <strong className="tabular">{money(locale, status.projected)}</strong>
-              <span className="t-muted">
-                {t(locale, 'usage.of', { ceiling: money(locale, status.planCeiling) })}
-              </span>
-            </p>
+            {billed ? (
+              <>
+                <p className="usage__figure">
+                  <strong className="tabular">{money(locale, status.projected)}</strong>
+                  <span className="t-muted">
+                    {t(locale, 'usage.of', { ceiling: money(locale, status.planCeiling) })}
+                  </span>
+                </p>
 
-            <div
-              className="usage__bar"
-              role="meter"
-              aria-valuenow={Math.round(share * 100)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={t(locale, 'usage.title')}
-            >
-              <span className="usage__bar-fill" style={{ width: barWidth }} />
-            </div>
+                <div
+                  className="usage__bar"
+                  role="meter"
+                  aria-valuenow={Math.round(share * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t(locale, 'usage.title')}
+                >
+                  <span
+                    className="usage__bar-fill"
+                    style={{ transform: `scaleX(${Math.min(1, Math.max(0, share))})` }}
+                  />
+                </div>
 
-            <p className="t-muted usage__cycle">
-              {t(locale, 'usage.daysLeft', { days: status.daysLeft })}
-            </p>
+                <p className="t-muted usage__cycle">
+                  {t(locale, 'usage.daysLeft', { days: status.daysLeft })}
+                </p>
+              </>
+            ) : (
+              <p className="t-prose t-muted">{t(locale, 'usage.selfhosted.body')}</p>
+            )}
+          </section>
+
+          <section className="card usage__server">
+            <h2 className="usage__server-title">
+              <span>{t(locale, 'usage.server.title')}</span>
+              <span className="usage__stamp">{ago(locale, status.sampledAt)}</span>
+            </h2>
+
+            <dl className="usage__readings">
+              <Reading
+                label={t(locale, 'usage.cpu')}
+                value={status.cpuVcpu === null ? '—' : decimal(locale, status.cpuVcpu, 2)}
+                unit={t(locale, 'usage.cpu.unit')}
+                hint={t(locale, 'usage.cpu.hint')}
+              />
+              <Reading
+                label={t(locale, 'usage.memory')}
+                value={status.memoryGb === null ? '—' : decimal(locale, status.memoryGb * 1024, 0)}
+                unit="MB"
+                hint={t(locale, 'usage.memory.hint')}
+              />
+              <Reading
+                label={t(locale, 'usage.disk')}
+                value={status.diskGb === null ? '—' : decimal(locale, status.diskGb, 1)}
+                unit="GB"
+                hint={t(locale, 'usage.disk.hint')}
+              />
+            </dl>
           </section>
 
           {status.advice.length > 0 && (
