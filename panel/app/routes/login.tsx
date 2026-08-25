@@ -1,6 +1,6 @@
 import { Form, redirect, useActionData, useLoaderData, useNavigation } from 'react-router'
 import { queryOne } from '~/lib/db.server.ts'
-import { verifyPassword } from '~/lib/password.server.ts'
+import { attemptKey, clearFailures, isLockedOut, recordFailure, verifyOrBurn } from '~/lib/login-guard.server.ts'
 import { createSession, sessionCookieHeader } from '~/lib/session.server.ts'
 import { getSession, safeNext } from '~/lib/auth.server.ts'
 import { isClaimed } from '~/lib/setup.server.ts'
@@ -29,6 +29,13 @@ export async function action({ request }: { request: Request }) {
   const next = safeNext(String(form.get('next') ?? ''))
   const locale = resolveLocale({ acceptLanguage: request.headers.get('accept-language') })
 
+  const key = attemptKey(email, request.headers.get('x-forwarded-for'))
+  if (isLockedOut(key)) {
+    // Same wording as a wrong password. Saying "too many attempts" would
+    // confirm the address is worth attacking.
+    return { error: t(locale, 'login.error.invalid') }
+  }
+
   const user = await queryOne<UserRow>(
     'SELECT id, password_hash, status FROM users WHERE lower(email) = lower($1)',
     [email]
@@ -36,13 +43,24 @@ export async function action({ request }: { request: Request }) {
 
   // The same failure for an unknown address and a wrong password: telling them
   // apart turns the form into a directory of who has an account here.
-  const ok = user ? await verifyPassword(user.password_hash, password) : false
+  //
+  // verifyOrBurn is what makes that true of the timing as well as the text. The
+  // previous version skipped the hash entirely when there was no user row, so a
+  // miss answered in about a millisecond against Argon2id's ~100ms — a
+  // difference an attacker can measure, which made the form a membership oracle
+  // no matter what it said.
+  const ok = await verifyOrBurn(user?.password_hash, password)
   if (!user || !ok) {
+    recordFailure(key)
     return { error: t(locale, 'login.error.invalid') }
   }
   if (user.status !== 'active') {
     return { error: t(locale, 'login.error.suspended') }
   }
+
+  // Cleared only on a real sign-in, so a valid password does not leave the
+  // account throttled by somebody else's guessing.
+  clearFailures(key)
 
   const { token, expiresAt } = await createSession(user.id, {
     ip: request.headers.get('x-forwarded-for'),
