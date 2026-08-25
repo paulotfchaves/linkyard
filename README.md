@@ -6,7 +6,13 @@ who clicked — without handing your traffic to a third party.
 
 ## Status
 
-Early development. Not yet usable.
+Working, not yet released. Both install paths have been run end to end on real
+infrastructure: a Docker Compose install on a Linux VPS, with a wildcard
+certificate from Let's Encrypt over the Cloudflare DNS challenge, and the
+Railway path behind the surfaces linked below.
+
+Not released means: no npm package yet, no published Railway template, no
+tagged version. Installing today means cloning this repository.
 
 ## Install targets
 
