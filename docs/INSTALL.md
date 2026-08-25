@@ -113,16 +113,24 @@ cp .env.example .env
 
 You can write it with one command, or by hand.
 
-**With the command** (needs Node 22+, which a fresh VPS does not have — install it, or use the by-hand path below):
+**With the command** (needs Node 22+, which a fresh VPS does not have — install it, or use the by-hand path below).
+
+Run it from the clone, not through `npx`:
 
 ```bash
-npx linkyard install
+node cli/src/index.mjs install
 ```
+
+`npx linkyard install` fetches the same tool from npm, but **not from inside
+this directory**. The repository declares a workspace named `linkyard`, so npx
+resolves that instead of the published package and fails with `could not
+determine executable to run` before it does anything. From any other directory
+it works, and `--out linkyard/.env` puts the file where Compose expects it.
 
 It asks for the panel host, the redirect domain and an email for the certificate, generates each secret separately, and writes `.env` readable only by you. It talks to no network: nothing it produces leaves the machine. Non-interactively:
 
 ```bash
-npx linkyard install \
+node cli/src/index.mjs install \
   --panel-host panel.example.com \
   --redirect-apex example.com \
   --email you@example.com \

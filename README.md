@@ -26,9 +26,16 @@ Compose, the CLI, and the hosted setup panel — are.
 
 ```bash
 git clone https://github.com/paulotfchaves/linkyard.git
-cd linkyard
-npx linkyard install      # writes .env; every secret generated locally
-docker compose up -d
+node linkyard/cli/src/index.mjs install --out linkyard/.env
+cd linkyard && docker compose up -d
+```
+
+The clone already contains the installer, so it runs straight from there and
+needs nothing fetched. Without a clone — to generate a `.env` for a machine you
+will provision some other way — the same tool is on npm:
+
+```bash
+npx linkyard install
 ```
 
 `npx linkyard install` talks to no network — it generates each secret
