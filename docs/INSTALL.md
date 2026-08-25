@@ -162,6 +162,27 @@ The panel applies any new database migrations itself when it starts. Take the ba
 
 ---
 
+## Backing up
+
+```bash
+DATABASE_URL=... npm run backup export linkyard-backup.json
+```
+
+The file holds what you built: domains, subdomains, links, tags, pending schedules, members and their permissions. It is written readable only by you.
+
+**Cloudflare credentials are deliberately not in it.** They are sealed with this installation's `ENCRYPTION_KEY`, so a copy is unreadable anywhere else — exporting them sealed produces a restore that silently cannot decrypt, and exporting them open turns a backup into a credential leak sitting in whatever bucket you drop it in. Re-enter them in the panel after a restore.
+
+Click history is not included either; it is measured in millions of rows and is not what you need while rebuilding a service. Add `--with-stats` for the daily aggregates if you want your charts back.
+
+Restoring:
+
+```bash
+DATABASE_URL=... npm run backup import linkyard-backup.json --dry-run
+DATABASE_URL=... npm run backup import linkyard-backup.json
+```
+
+The dry run does the whole restore and rolls it back, so what it reports is what would really happen. A restore is a merge, keyed on natural identity — a domain by its apex, a link by host and slug — so running the same file twice changes nothing the second time, and restoring into a database that already has links adds only what is missing.
+
 ## When something is wrong
 
 Run the doctor. It checks the things that actually break, prints `PASS` or `FAIL` for each, and tells you the next step for anything that failed.

@@ -20,7 +20,9 @@
   "scripts": {
     "test": "node --test --test-concurrency=1",
     "migrate": "node db/migrate.mjs",
-    "scan": "bash scripts/scan.sh"
+    "scan": "bash scripts/scan.sh",
+    "backup": "node scripts/backup.mjs",
+    "doctor": "node scripts/doctor.mjs"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,

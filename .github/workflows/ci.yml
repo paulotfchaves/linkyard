@@ -27,13 +27,13 @@ jobs:
       TEST_DATABASE_URL: postgres://postgres@localhost:5432/linkyard_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The gate sweeps the full history. A shallow clone would let a bad
           # commit through unseen.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
 
